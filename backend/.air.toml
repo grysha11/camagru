@@ -1,0 +1,13 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  entrypoint = "./tmp/main"
+  cmd = "go build -o ./tmp/main ./cmd/api/main.go"
+  delay = 1000
+  exclude_dir = ["assets", "tmp", "vendor", "sql"]
+  include_ext = ["go", "tpl", "html", "tmpl"]
+  stop_on_error = true
+
+[screen]
+  clear_on_rebuild = true

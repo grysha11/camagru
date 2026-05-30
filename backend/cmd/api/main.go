@@ -14,7 +14,7 @@ import (
 
 func main() {
 	dbUrl := os.Getenv("DB_URL")
-	postgre, err := sql.Open("postgress", dbUrl)
+	postgre, err := sql.Open("postgres", dbUrl)
 	if err != nil {
 		log.Fatalf("Error connecting to db: %v\n", err)
 	}
