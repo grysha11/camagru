@@ -1,0 +1,20 @@
+openapi: 3.0.0
+info:
+  title: Camagru API
+  version: 1.0.0
+paths:
+  /healthz:
+    get:
+      summary: Health check endpoint
+      operationId: GetHealthz
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
