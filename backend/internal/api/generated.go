@@ -11,13 +11,56 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// ErrorResponse defines model for ErrorResponse.
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	Email    openapi_types.Email `json:"email"`
+	Password string              `json:"password"`
+}
+
+// RegisterRequest defines model for RegisterRequest.
+type RegisterRequest struct {
+	Email    openapi_types.Email `json:"email"`
+	Password string              `json:"password"`
+	Username string              `json:"username"`
+}
+
+// SuccessResponse defines model for SuccessResponse.
+type SuccessResponse struct {
+	Message string `json:"message"`
+}
+
+// LoginUserJSONRequestBody defines body for LoginUser for application/json ContentType.
+type LoginUserJSONRequestBody = LoginRequest
+
+// RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
+type RegisterUserJSONRequestBody = RegisterRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Health check endpoint
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
+	// Log in a user
+	// (POST /login)
+	LoginUser(w http.ResponseWriter, r *http.Request)
+	// Log out a user
+	// (POST /logout)
+	LogoutUser(w http.ResponseWriter, r *http.Request)
+	// Refresh the access token
+	// (POST /refresh)
+	RefreshToken(w http.ResponseWriter, r *http.Request)
+	// Register a new user
+	// (POST /register)
+	RegisterUser(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -34,6 +77,62 @@ func (siw *ServerInterfaceWrapper) GetHealthz(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealthz(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LoginUser operation middleware
+func (siw *ServerInterfaceWrapper) LoginUser(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LoginUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LogoutUser operation middleware
+func (siw *ServerInterfaceWrapper) LogoutUser(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LogoutUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefreshToken operation middleware
+func (siw *ServerInterfaceWrapper) RefreshToken(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RegisterUser operation middleware
+func (siw *ServerInterfaceWrapper) RegisterUser(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegisterUser(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -164,6 +263,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/healthz", wrapper.GetHealthz)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/login", wrapper.LoginUser)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/logout", wrapper.LogoutUser)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/refresh", wrapper.RefreshToken)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/register", wrapper.RegisterUser)
 
 	return m
 }
@@ -176,7 +279,7 @@ type GetHealthzResponseObject interface {
 }
 
 type GetHealthz200JSONResponse struct {
-	Status *string `json:"status,omitempty"`
+	Status string `json:"status"`
 }
 
 func (response GetHealthz200JSONResponse) VisitGetHealthzResponse(w http.ResponseWriter) error {
@@ -191,11 +294,181 @@ func (response GetHealthz200JSONResponse) VisitGetHealthzResponse(w http.Respons
 	return err
 }
 
+type LoginUserRequestObject struct {
+	Body *LoginUserJSONRequestBody
+}
+
+type LoginUserResponseObject interface {
+	VisitLoginUserResponse(w http.ResponseWriter) error
+}
+
+type LoginUser200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type LoginUser200JSONResponse struct {
+	Body    SuccessResponse
+	Headers LoginUser200ResponseHeaders
+}
+
+func (response LoginUser200JSONResponse) VisitLoginUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LoginUser401JSONResponse ErrorResponse
+
+func (response LoginUser401JSONResponse) VisitLoginUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutUserRequestObject struct {
+}
+
+type LogoutUserResponseObject interface {
+	VisitLogoutUserResponse(w http.ResponseWriter) error
+}
+
+type LogoutUser200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type LogoutUser200JSONResponse struct {
+	Body    SuccessResponse
+	Headers LogoutUser200ResponseHeaders
+}
+
+func (response LogoutUser200JSONResponse) VisitLogoutUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshTokenRequestObject struct {
+}
+
+type RefreshTokenResponseObject interface {
+	VisitRefreshTokenResponse(w http.ResponseWriter) error
+}
+
+type RefreshToken200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type RefreshToken200JSONResponse struct {
+	Body    SuccessResponse
+	Headers RefreshToken200ResponseHeaders
+}
+
+func (response RefreshToken200JSONResponse) VisitRefreshTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshToken401JSONResponse ErrorResponse
+
+func (response RefreshToken401JSONResponse) VisitRefreshTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RegisterUserRequestObject struct {
+	Body *RegisterUserJSONRequestBody
+}
+
+type RegisterUserResponseObject interface {
+	VisitRegisterUserResponse(w http.ResponseWriter) error
+}
+
+type RegisterUser201JSONResponse SuccessResponse
+
+func (response RegisterUser201JSONResponse) VisitRegisterUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RegisterUser400JSONResponse ErrorResponse
+
+func (response RegisterUser400JSONResponse) VisitRegisterUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Health check endpoint
 	// (GET /healthz)
 	GetHealthz(ctx context.Context, request GetHealthzRequestObject) (GetHealthzResponseObject, error)
+	// Log in a user
+	// (POST /login)
+	LoginUser(ctx context.Context, request LoginUserRequestObject) (LoginUserResponseObject, error)
+	// Log out a user
+	// (POST /logout)
+	LogoutUser(ctx context.Context, request LogoutUserRequestObject) (LogoutUserResponseObject, error)
+	// Refresh the access token
+	// (POST /refresh)
+	RefreshToken(ctx context.Context, request RefreshTokenRequestObject) (RefreshTokenResponseObject, error)
+	// Register a new user
+	// (POST /register)
+	RegisterUser(ctx context.Context, request RegisterUserRequestObject) (RegisterUserResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -244,6 +517,116 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetHealthzResponseObject); ok {
 		if err := validResponse.VisitGetHealthzResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LoginUser operation middleware
+func (sh *strictHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
+	var request LoginUserRequestObject
+
+	var body LoginUserJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LoginUser(ctx, request.(LoginUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LoginUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LoginUserResponseObject); ok {
+		if err := validResponse.VisitLoginUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LogoutUser operation middleware
+func (sh *strictHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
+	var request LogoutUserRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LogoutUser(ctx, request.(LogoutUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LogoutUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LogoutUserResponseObject); ok {
+		if err := validResponse.VisitLogoutUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RefreshToken operation middleware
+func (sh *strictHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	var request RefreshTokenRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RefreshToken(ctx, request.(RefreshTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RefreshToken")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RefreshTokenResponseObject); ok {
+		if err := validResponse.VisitRefreshTokenResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RegisterUser operation middleware
+func (sh *strictHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
+	var request RegisterUserRequestObject
+
+	var body RegisterUserJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RegisterUser(ctx, request.(RegisterUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RegisterUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RegisterUserResponseObject); ok {
+		if err := validResponse.VisitRegisterUserResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -7,7 +7,6 @@ import (
 	_ "github.com/lib/pq"
 	"net/http"
 	"github.com/grysha11/camagru-backend/internal/config"
-	"github.com/grysha11/camagru-backend/internal/db"
 	"github.com/grysha11/camagru-backend/internal/handler"
 	"github.com/grysha11/camagru-backend/internal/router"
 )
@@ -19,9 +18,7 @@ func main() {
 		log.Fatalf("Error connecting to db: %v\n", err)
 	}
 
-	cfg := &config.Config{
-		DB: db.New(postgre),
-	}
+	cfg := config.NewConfig(postgre)
 
 	h := &handler.Handler{Cfg: cfg}
 

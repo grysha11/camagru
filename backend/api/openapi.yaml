@@ -2,6 +2,7 @@ openapi: 3.0.0
 info:
   title: Camagru API
   version: 1.0.0
+
 paths:
   /healthz:
     get:
@@ -14,7 +15,156 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - status
                 properties:
                   status:
                     type: string
                     example: "ok"
+
+  /register:
+    post:
+      summary: Register a new user
+      operationId: RegisterUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created successfully. Awaiting email confirmation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad request (e.g., duplicate email, weak password)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /login:
+    post:
+      summary: Log in a user
+      operationId: LoginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successfully logged in
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: "Sends the HttpOnly access_token and refresh_token"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /refresh:
+    post:
+      summary: Refresh the access token
+      operationId: RefreshToken
+      responses:
+        '200':
+          description: Token refreshed successfully
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: "Sends the new access_token"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Invalid, missing, or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /logout:
+    post:
+      summary: Log out a user
+      operationId: LogoutUser
+      responses:
+        '200':
+          description: Successfully logged out
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: "Clears the auth cookies"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+components:
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          example: "grisha"
+        email:
+          type: string
+          format: email
+          example: "example@example.com"
+        password:
+          type: string
+          format: password
+          example: "SuperSecret1!"
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "example@example.com"
+        password:
+          type: string
+          format: password
+          example: "SuperSecret1!"
+
+    SuccessResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          example: "Operation successful"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          example: "Something went wrong"

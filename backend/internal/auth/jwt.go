@@ -1,8 +1,11 @@
 package auth
 
 import (
-	"time"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
+	"time"
+
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -30,4 +33,13 @@ func ValidateAccessToken(tokenString, secret string) (string, error) {
 	}
 
 	return claims.Subject, nil
+}
+
+func GenerateRefreshToken() (string, error) {
+	tmp := make([]byte, 32)
+	if _, err := rand.Read(tmp); err != nil {
+		return "", err
+	}
+
+	return base64.URLEncoding.EncodeToString(tmp), nil
 }

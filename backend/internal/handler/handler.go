@@ -11,8 +11,7 @@ type Handler struct {
 }
 
 func (h *Handler) GetHealthz(ctx context.Context, r api.GetHealthzRequestObject) (api.GetHealthzResponseObject, error) {
-	statusMsg := "ok"
 	return api.GetHealthz200JSONResponse{
-		Status: &statusMsg,
+		Status: "ok",
 	}, nil
 }
