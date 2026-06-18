@@ -9,6 +9,7 @@ import (
 
 type contextKey string
 const UserIDKey contextKey = "userID"
+const RefreshTokenKey contextKey = "refreshToken"
 
 func AuthMiddleware(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -30,4 +31,18 @@ func AuthMiddleware(secret string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, reqWithCtx)
 		})
 	}
+}
+
+func RefreshTokenMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("refresh_token")
+		if err != nil {
+			http.Error(w, "missing refresh token", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), RefreshTokenKey, cookie.Value)
+		reqWithCtx := r.WithContext(ctx)
+		next.ServeHTTP(w, reqWithCtx)
+	})
 }

@@ -2,11 +2,13 @@ package handler
 
 import (
 	"context"
-	"time"
 	"fmt"
+	"time"
+
 	"github.com/grysha11/camagru-backend/internal/api"
 	"github.com/grysha11/camagru-backend/internal/auth"
 	"github.com/grysha11/camagru-backend/internal/db"
+	"github.com/grysha11/camagru-backend/internal/middleware"
 )
 
 func (h *Handler) RegisterUser(ctx context.Context, r api.RegisterUserRequestObject) (api.RegisterUserResponseObject, error) {
@@ -75,9 +77,49 @@ func (h *Handler) LoginUser(ctx context.Context, r api.LoginUserRequestObject) (
 }
 
 func (h *Handler) RefreshToken(ctx context.Context, r api.RefreshTokenRequestObject) (api.RefreshTokenResponseObject, error) {
+	refreshToken, ok := ctx.Value(middleware.RefreshTokenKey).(string)
+	if !ok || refreshToken == "" {
+		return api.RefreshToken401JSONResponse{Error: "Invalid session"}, nil
+	}
 
+	dbToken, err := h.Cfg.DB.GetRefreshToken(ctx, refreshToken)
+	if err != nil {
+		return api.RefreshToken401JSONResponse{Error: "Invalid session"}, nil
+	}
+
+	if time.Now().After(dbToken.ExpiredAt) || dbToken.RevokedAt.Valid {
+		return api.RefreshToken401JSONResponse{Error: "Session expired, please log in again"}, nil
+	}
+
+	newAccessToken, err := auth.GenerateAccessToken(dbToken.UserID.String(), h.Cfg.JWTSecret, 15*time.Minute)
+	if err != nil {
+		return api.RefreshToken401JSONResponse{Error: "Could not generate refresh token"}, nil
+	}
+
+	accessToken := fmt.Sprintf("access_token=%s; Path=/; Max-Age=%d; HttpOnly; Secure; SameSite=Strict", newAccessToken, 15*60)
+
+	return api.RefreshToken200JSONResponse{
+		Body: api.SuccessResponse{Message: "Token refreshed"},
+		Headers: api.RefreshToken200ResponseHeaders{
+			SetCookie: &accessToken,
+		},
+	}, nil
 }
 
 func (h *Handler) LogoutUser(ctx context.Context, r api.LogoutUserRequestObject) (api.LogoutUserResponseObject, error) {
+	refreshToken, ok := ctx.Value(middleware.RefreshTokenKey).(string)
+	if ok || refreshToken != "" {
+		_ = h.Cfg.DB.DeleteRefreshToken(ctx, refreshToken)
+	}
 
+	killAcessToken := "access_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict"
+	killRefreshToken := "refresh_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict"
+	cookieHeader := killAcessToken + "\nSet-Cookie" + killRefreshToken
+
+	return api.LogoutUser200JSONResponse{
+		Body: api.SuccessResponse{Message: "Successfully logged out"},
+		Headers: api.LogoutUser200ResponseHeaders{
+			SetCookie: &cookieHeader,
+		},
+	}, nil
 }
