@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"net/mail"
 	"unicode"
 	"fmt"
 	"golang.org/x/crypto/bcrypt"
@@ -47,4 +48,17 @@ func IsValidPassword(password string) error {
 	}
 
 	return fmt.Errorf("Not valid password")
+}
+
+func IsValidEmail(email string) error {
+	addr, err := mail.ParseAddress(email)
+	if err != nil {
+		return fmt.Errorf("invalid email format")
+	}
+
+	if addr.Address != email {
+		return fmt.Errorf("invalid email format")
+	}
+	
+	return nil
 }

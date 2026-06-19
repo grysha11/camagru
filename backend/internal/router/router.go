@@ -1,6 +1,7 @@
 package router
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/grysha11/camagru-backend/internal/api"
@@ -25,6 +26,15 @@ func NewRouter(cfg *config.Config, h *handler.Handler) *http.ServeMux {
 	
 	strictHandler := api.NewStrictHandler(h, nil)
 	api.HandlerFromMux(strictHandler, mux)
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+
+		json.NewEncoder(w).Encode(api.ErrorResponse{
+			Error: "Endpoint not found: " + r.URL.Path,
+		})
+	})
 
 	return mux
 }

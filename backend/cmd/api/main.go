@@ -1,17 +1,25 @@
 package main
 
 import (
-	"os"
-	"log"
 	"database/sql"
-	_ "github.com/lib/pq"
+	"log"
+	"log/slog"
 	"net/http"
+	"os"
+
 	"github.com/grysha11/camagru-backend/internal/config"
 	"github.com/grysha11/camagru-backend/internal/handler"
+	"github.com/grysha11/camagru-backend/internal/middleware"
 	"github.com/grysha11/camagru-backend/internal/router"
+	_ "github.com/lib/pq"
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	slog.SetDefault(logger)
+
 	dbUrl := os.Getenv("DB_URL")
 	postgre, err := sql.Open("postgres", dbUrl)
 	if err != nil {
@@ -19,17 +27,18 @@ func main() {
 	}
 
 	cfg := config.NewConfig(postgre)
-
 	h := &handler.Handler{Cfg: cfg}
-
 	mux := router.NewRouter(cfg, h)
 
 	port := os.Getenv("BACKEND_PORT")
+
+	loggedMux := middleware.LoggerMiddleware(mux)
+
 	server := &http.Server{
 		Addr: ":" + port,
-		Handler: mux,
+		Handler: loggedMux,
 	}
 
-	log.Printf("Listening on port: %v\n", server.Addr)
+	slog.Info("Starting backend", slog.String("port", port))
 	log.Fatal(server.ListenAndServe())
 }

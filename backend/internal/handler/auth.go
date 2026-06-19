@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"log/slog"
 
 	"github.com/grysha11/camagru-backend/internal/api"
 	"github.com/grysha11/camagru-backend/internal/auth"
@@ -12,12 +13,17 @@ import (
 )
 
 func (h *Handler) RegisterUser(ctx context.Context, r api.RegisterUserRequestObject) (api.RegisterUserResponseObject, error) {
+	if err := auth.IsValidEmail(string(r.Body.Email)); err != nil {
+		return api.RegisterUser400JSONResponse{Error: "Invalid email address format"}, nil
+	} 
+	
 	if err := auth.IsValidPassword(r.Body.Password); err != nil {
 		return api.RegisterUser400JSONResponse{Error: "Password must be at least 8 characters and include uppercase, lowercase, number, and special character"}, nil
 	}
 
 	hashedPassword, err := auth.HashPassword(r.Body.Password)
 	if err != nil {
+		slog.Error("Registration failed: password hashing error", slog.Any("error", err), slog.String("email", string(r.Body.Email)))
 		return api.RegisterUser400JSONResponse{Error: "Failed to proccess password"}, nil
 	}
 
@@ -27,6 +33,7 @@ func (h *Handler) RegisterUser(ctx context.Context, r api.RegisterUserRequestObj
 		HashedPassword: hashedPassword,
 	})
 	if err != nil {
+		slog.Warn("Registration rejected: database unique constraint conflict", slog.Any("error", err), slog.String("email", string(r.Body.Email)), slog.String("username", r.Body.Username))
 		return api.RegisterUser400JSONResponse{Error: "Username or email already exists"}, nil
 	}
 
@@ -36,6 +43,7 @@ func (h *Handler) RegisterUser(ctx context.Context, r api.RegisterUserRequestObj
 func (h *Handler) LoginUser(ctx context.Context, r api.LoginUserRequestObject) (api.LoginUserResponseObject, error) {
 	user, err := h.Cfg.DB.GetUserByEmail(ctx, string(r.Body.Email))
 	if err != nil {
+		slog.Warn("Login unathorized: email destination target missing", slog.Any("error", err), slog.String("email", string(r.Body.Email)))
 		return api.LoginUser401JSONResponse{Error: "User does not exists with this email"}, nil
 	}
 

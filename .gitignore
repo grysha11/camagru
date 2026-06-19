@@ -1,3 +1,4 @@
 .env
-./backend/tmp/*
-./backend/main
+/backend/tmp/*
+/backend/main
+/backend/tmp
