@@ -2,4 +2,4 @@
 /backend/tmp/*
 /backend/main
 /backend/tmp
-/frontend/env.js
+/frontend/js/env.js
