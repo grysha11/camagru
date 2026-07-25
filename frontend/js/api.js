@@ -1,7 +1,3 @@
-import { ENV } from './env.js';
-
-const API_BASE = ENV.API_URL;
-
 async function handleResponse(response) {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -12,7 +8,7 @@ async function handleResponse(response) {
 
 export const api = {
     async register(username, email, password) {
-        const response = await fetch(`{API_BASE}/register`, {
+        const response = await fetch("/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, email, password }),
@@ -21,7 +17,7 @@ export const api = {
     },
 
     async login(email, password) {
-        const response = await fetch(`{API_BASE}/login`, {
+        const response = await fetch("/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",

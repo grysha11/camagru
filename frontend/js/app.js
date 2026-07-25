@@ -1,7 +1,7 @@
 import { api } from './api.js';
 
 document.addEventListener("DOMContentLoaded", () => {
-    const loginSection = document.getElementsById("login-section");
+    const loginSection = document.getElementById("login-section");
     const registerSection = document.getElementById("register-section");
     const loginForm = document.getElementById("login-form");
     const registerForm = document.getElementById("register-form");

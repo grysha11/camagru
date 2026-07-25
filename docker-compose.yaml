@@ -25,5 +25,17 @@ services:
     depends_on:
       - db
 
+  proxy:
+    image: caddy:2-alpine
+    container_name: camagru-proxy
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile
+      - ./frontend:/var/www/frontend
+    depends_on:
+      - backend
+
 volumes:
   pgdata:
