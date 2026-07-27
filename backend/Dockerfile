@@ -7,7 +7,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o camagru-api ./main.go 
+RUN go build -o camagru-api ./cmd/api
 
 FROM alpine:latest
 

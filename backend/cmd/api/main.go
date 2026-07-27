@@ -21,6 +21,10 @@ func main() {
 	slog.SetDefault(logger)
 
 	dbUrl := os.Getenv("DB_URL")
+	if dbUrl == "" {
+		log.Fatal("DB_URL environment variable is required")
+	}
+
 	postgre, err := sql.Open("postgres", dbUrl)
 	if err != nil {
 		log.Fatalf("Error connecting to db: %v\n", err)
@@ -31,6 +35,9 @@ func main() {
 	mux := router.NewRouter(cfg, h)
 
 	port := os.Getenv("BACKEND_PORT")
+	if port == "" {
+		log.Fatal("BACKEND_PORT environment variable is required")
+	}
 
 	loggedMux := middleware.LoggerMiddleware(mux)
 

@@ -12,6 +12,16 @@ document.addEventListener("DOMContentLoaded", () => {
         statusMessage.style.color = isError ? "red" : "green";
     };
 
+    const isValidEmail = (email) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+
+    const isValidPassword = (password) => {
+        const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+        return passwordRegex.test(password);
+    };
+
     document.getElementById("show-register").addEventListener("click", () => {
         loginSection.style.display = "none";
         registerSection.style.display = "block";
@@ -30,6 +40,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const email = document.getElementById("register-email").value;
         const password = document.getElementById("register-password").value;
 
+        if (!isValidEmail(email)) {
+            return showMessage("Please enter valid email address.", true);
+        }
+        if (!isValidPassword(password)) {
+            return showMessage("Password must be at least 8 characters, contain 1 uppercase letter and 1 number.", true);
+        }
+
         try {
             const res = await api.register(username, email, password);
             showMessage(res.message + " You can now log in.");
@@ -47,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const res = await api.login(email, password);
             showMessage(res.message);
-            // window.location.href = "/gallery.html";
+            window.location.href = "/gallery.html";
         } catch (error) {
             showMessage(error.message, true);
         }

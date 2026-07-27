@@ -2,3 +2,5 @@
 /backend/tmp/*
 /backend/main
 /backend/tmp
+CLAUDE.md
+/.claude/

@@ -7,6 +7,7 @@ import (
 	"github.com/grysha11/camagru-backend/internal/api"
 	"github.com/grysha11/camagru-backend/internal/config"
 	"github.com/grysha11/camagru-backend/internal/handler"
+	"github.com/grysha11/camagru-backend/internal/middleware"
 )
 
 func NewRouter(cfg *config.Config, h *handler.Handler) *http.ServeMux {
@@ -24,7 +25,10 @@ func NewRouter(cfg *config.Config, h *handler.Handler) *http.ServeMux {
 		http.Redirect(w, r, "/docs", http.StatusMovedPermanently)
 	})
 	
-	strictHandler := api.NewStrictHandler(h, nil)
+	strictHandler := api.NewStrictHandler(h, []api.StrictMiddlewareFunc{
+		middleware.RefreshTokenContextMiddleware(),
+		middleware.MultiCookieMiddleware(),
+	})
 	api.HandlerFromMux(strictHandler, mux)
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

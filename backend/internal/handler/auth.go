@@ -74,7 +74,7 @@ func (h *Handler) LoginUser(ctx context.Context, r api.LoginUserRequestObject) (
 	accessCookie := fmt.Sprintf("access_token=%s; Path=/; Max-Age=%d; HttpOnly; Secure; SameSite=Strict", accessToken, 15*60)
 	refreshCookie := fmt.Sprintf("refresh_token=%s; Path=/; Max-Age=%d; HttpOnly; Secure; SameSite=Strict", refreshToken, 7*24*60*60)
 
-	cookieHeader := accessCookie + "\nSet-Cookie: " + refreshCookie
+	cookieHeader := accessCookie + "\n" + refreshCookie
 
 	return api.LoginUser200JSONResponse{
 		Body: api.SuccessResponse{Message: "Successfully logged in"},
@@ -116,13 +116,13 @@ func (h *Handler) RefreshToken(ctx context.Context, r api.RefreshTokenRequestObj
 
 func (h *Handler) LogoutUser(ctx context.Context, r api.LogoutUserRequestObject) (api.LogoutUserResponseObject, error) {
 	refreshToken, ok := ctx.Value(middleware.RefreshTokenKey).(string)
-	if ok || refreshToken != "" {
+	if ok && refreshToken != "" {
 		_ = h.Cfg.DB.DeleteRefreshToken(ctx, refreshToken)
 	}
 
 	killAcessToken := "access_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict"
 	killRefreshToken := "refresh_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict"
-	cookieHeader := killAcessToken + "\nSet-Cookie" + killRefreshToken
+	cookieHeader := killAcessToken + "\n" + killRefreshToken
 
 	return api.LogoutUser200JSONResponse{
 		Body: api.SuccessResponse{Message: "Successfully logged out"},
