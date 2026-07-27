@@ -42,6 +42,7 @@ JSON Web Tokens (JWT) and Refresh Tokens rely on cryptographic randomness and HM
 | `jwt.NewWithClaims(SigningMethodHS256)` | `hash_hmac('sha256', $header.$payload, $secret)` | A JWT is simply a base64 encoded string signed with an HMAC SHA-256 hash. PHP has this natively built-in via `hash_hmac`. |
 | `rand.Read(...)` | `random_bytes(32)` | Cryptographically secure pseudo-random number generation (CSPRNG) for refresh tokens. |
 | `base64.URLEncoding.EncodeToString()` | `base64_encode()` (with string replacement) | Encoding binary tokens into safe URL strings. |
+| `sha256.Sum256(...)` | `hash('sha256', $data)` | Hashing refresh tokens before storing them at rest. |
 
 ## 5. Data Serialization
 

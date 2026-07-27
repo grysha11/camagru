@@ -2,7 +2,9 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -42,4 +44,9 @@ func GenerateRefreshToken() (string, error) {
 	}
 
 	return base64.URLEncoding.EncodeToString(tmp), nil
+}
+
+func HashRefreshToken(rawToken string) string {
+	sum := sha256.Sum256([]byte(rawToken))
+	return hex.EncodeToString(sum[:])
 }

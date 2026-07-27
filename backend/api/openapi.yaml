@@ -86,7 +86,7 @@ paths:
             Set-Cookie:
               schema:
                 type: string
-              description: "Sends the new access_token"
+              description: "Sends the new access_token and refresh_token"
           content:
             application/json:
               schema:

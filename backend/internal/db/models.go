@@ -12,7 +12,7 @@ import (
 )
 
 type RefreshToken struct {
-	Token     string
+	TokenHash string
 	UserID    uuid.UUID
 	ExpiredAt time.Time
 	RevokedAt sql.NullTime

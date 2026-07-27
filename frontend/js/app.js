@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const isValidPassword = (password) => {
-        const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+        const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
         return passwordRegex.test(password);
     };
 
@@ -44,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return showMessage("Please enter valid email address.", true);
         }
         if (!isValidPassword(password)) {
-            return showMessage("Password must be at least 8 characters, contain 1 uppercase letter and 1 number.", true);
+            return showMessage("Password must be at least 8 characters and include uppercase, lowercase, number, and special character.", true);
         }
 
         try {

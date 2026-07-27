@@ -68,18 +68,24 @@ func MultiCookieMiddleware() api.StrictMiddlewareFunc {
 			}
 			switch resp := response.(type) {
 			case api.LoginUser200JSONResponse:
-				writeSplitCookies(w, resp.Headers.SetCookie)
-				resp.Headers.SetCookie = nil
+				splitAndClear(w, &resp.Headers.SetCookie)
 				return resp, nil
 			case api.LogoutUser200JSONResponse:
-				writeSplitCookies(w, resp.Headers.SetCookie)
-				resp.Headers.SetCookie = nil
+				splitAndClear(w, &resp.Headers.SetCookie)
+				return resp, nil
+			case api.RefreshToken200JSONResponse:
+				splitAndClear(w, &resp.Headers.SetCookie)
 				return resp, nil
 			default:
 				return response, err
 			}
 		}
 	}
+}
+
+func splitAndClear(w http.ResponseWriter, cookie **string) {
+	writeSplitCookies(w, *cookie)
+	*cookie = nil
 }
 
 func writeSplitCookies(w http.ResponseWriter, combined *string) {
