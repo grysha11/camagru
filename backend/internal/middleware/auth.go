@@ -14,25 +14,32 @@ type contextKey string
 const UserIDKey contextKey = "userID"
 const RefreshTokenKey contextKey = "refreshToken"
 
-func AuthMiddleware(secret string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func AuthMiddleware(secret string) api.StrictMiddlewareFunc {
+	return func(f api.StrictHandlerFunc, operationID string) api.StrictHandlerFunc {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error) {
+			if operationID != "GetMe" {
+				return f(ctx, w, r, request)
+			}
+
 			cookie, err := r.Cookie("access_token")
 			if err != nil {
-				http.Error(w, "unathorized", http.StatusUnauthorized)
-				return
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(api.ErrorResponse{Error: "Not authenticated"})
+				return nil, nil
 			}
 
 			userID, err := auth.ValidateAccessToken(cookie.Value, secret)
 			if err != nil {
-				http.Error(w, "unathorized", http.StatusUnauthorized)
-				return
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(api.ErrorResponse{Error: "Not authenticated"})
+				return nil, nil
 			}
 
-			ctx := context.WithValue(r.Context(), UserIDKey, userID)
-			reqWithCtx := r.WithContext(ctx)
-			next.ServeHTTP(w, reqWithCtx)
-		})
+			ctx = context.WithValue(ctx, UserIDKey, userID)
+			return f(ctx, w, r, request)
+		}
 	}
 }
 

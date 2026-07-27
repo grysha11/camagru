@@ -5,6 +5,7 @@
     reverse_proxy /register backend:8080
     reverse_proxy /logout backend:8080
     reverse_proxy /refresh backend:8080
+    reverse_proxy /me backend:8080
     reverse_proxy /healthz backend:8080
     reverse_proxy /docs backend:8080
     reverse_proxy /api/* backend:8080

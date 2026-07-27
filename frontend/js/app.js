@@ -1,5 +1,11 @@
 import { api } from './api.js';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
+const isValidEmail = (email) => EMAIL_REGEX.test(email);
+const isValidPassword = (password) => PASSWORD_REGEX.test(password);
+
 document.addEventListener("DOMContentLoaded", () => {
     const loginSection = document.getElementById("login-section");
     const registerSection = document.getElementById("register-section");
@@ -10,16 +16,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const showMessage = (msg, isError = false) => {
         statusMessage.textContent = msg;
         statusMessage.style.color = isError ? "red" : "green";
-    };
-
-    const isValidEmail = (email) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    };
-
-    const isValidPassword = (password) => {
-        const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
-        return passwordRegex.test(password);
     };
 
     document.getElementById("show-register").addEventListener("click", () => {

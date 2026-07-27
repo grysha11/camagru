@@ -24,5 +24,26 @@ export const api = {
             body: JSON.stringify({ email, password }),
         });
         return handleResponse(response);
+    },
+
+    async me() {
+        const response = await fetch("/me", { credentials: "include" });
+        return handleResponse(response);
+    },
+
+    async refresh() {
+        const response = await fetch("/refresh", {
+            method: "POST",
+            credentials: "include",
+        });
+        return handleResponse(response);
+    },
+
+    async logout() {
+        const response = await fetch("/logout", {
+            method: "POST",
+            credentials: "include",
+        });
+        return handleResponse(response);
     }
 };

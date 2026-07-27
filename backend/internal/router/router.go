@@ -3,6 +3,7 @@ package router
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/grysha11/camagru-backend/internal/api"
 	"github.com/grysha11/camagru-backend/internal/config"
@@ -25,7 +26,10 @@ func NewRouter(cfg *config.Config, h *handler.Handler) *http.ServeMux {
 		http.Redirect(w, r, "/docs", http.StatusMovedPermanently)
 	})
 	
+	loginLimiter := middleware.NewRateLimiter(5, time.Minute)
 	strictHandler := api.NewStrictHandler(h, []api.StrictMiddlewareFunc{
+		middleware.RateLimitMiddleware(loginLimiter),
+		middleware.AuthMiddleware(cfg.JWTSecret),
 		middleware.RefreshTokenContextMiddleware(),
 		middleware.MultiCookieMiddleware(),
 	})

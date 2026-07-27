@@ -98,6 +98,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /me:
+    get:
+      summary: Get the current authenticated user
+      operationId: GetMe
+      responses:
+        '200':
+          description: Authenticated user info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /logout:
     post:
       summary: Log out a user
@@ -150,6 +168,22 @@ components:
           type: string
           format: password
           example: "SuperSecret1!"
+
+    UserResponse:
+      type: object
+      required:
+        - id
+        - username
+        - email
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          format: email
 
     SuccessResponse:
       type: object
