@@ -25,7 +25,29 @@ type RateLimiter struct {
 }
 
 func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
-	return &RateLimiter{windows: make(map[string]*ipWindow), limit: limit, window: window}
+	rl := &RateLimiter{windows: make(map[string]*ipWindow), limit: limit, window: window}
+	go rl.cleanupLoop()
+	return rl
+}
+
+func (rl *RateLimiter) cleanupLoop() {
+	ticker := time.NewTicker(rl.window)
+	defer ticker.Stop()
+	for range ticker.C {
+		rl.cleanup()
+	}
+}
+
+func (rl *RateLimiter) cleanup() {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	now := time.Now()
+	for key, w := range rl.windows {
+		if now.Sub(w.windowFrom) > rl.window {
+			delete(rl.windows, key)
+		}
+	}
 }
 
 func (rl *RateLimiter) Allow(key string) bool {

@@ -2,6 +2,9 @@ package handler
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/oapi-codegen/runtime/types"
@@ -23,6 +26,11 @@ func (h *Handler) GetMe(ctx context.Context, r api.GetMeRequestObject) (api.GetM
 
 	user, err := h.Cfg.DB.GetUserByID(ctx, userID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			slog.Warn("GetMe failed: user not found", slog.String("user_id", userID.String()))
+		} else {
+			slog.Error("GetMe failed: database error looking up user by id", slog.Any("error", err))
+		}
 		return api.GetMe401JSONResponse{Error: "Not authenticated"}, nil
 	}
 

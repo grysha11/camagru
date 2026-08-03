@@ -29,11 +29,11 @@ func LoggerMiddleware(next http.Handler) http.Handler {
 		duration := time.Since(start)
 
 		slog.Info("HTTP Request",
-					slog.String("method", r.Method),
-					slog.String("path", r.URL.Path),
-					slog.Int("status", rec.statusCode),
-					slog.String("duration", duration.String()),
-					slog.String("ip", r.RemoteAddr),
-				)	
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.Int("status", rec.statusCode),
+			slog.Duration("duration", duration),
+			slog.String("ip", clientIP(r)),
+		)
 	})
 }

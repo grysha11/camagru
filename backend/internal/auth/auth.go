@@ -17,7 +17,7 @@ func CheckHash(password, hash string) error {
 	return err
 }
 
-func IsValidPassword(password string) error {
+func ValidatePassword(password string) error {
 	var (
 		hasMinLen = false
 		hasUpper = false
@@ -47,10 +47,10 @@ func IsValidPassword(password string) error {
 		return nil
 	}
 
-	return fmt.Errorf("Not valid password")
+	return fmt.Errorf("invalid password format")
 }
 
-func IsValidEmail(email string) error {
+func ValidateEmail(email string) error {
 	addr, err := mail.ParseAddress(email)
 	if err != nil {
 		return fmt.Errorf("invalid email format")
