@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 )
@@ -18,13 +19,13 @@ VALUES (
     $2,
     $3
 )
-RETURNING id, username, email, hashed_password, created_at, updated_at
+RETURNING id, username, email, hashed_password, created_at, updated_at, email_verified_at, notify_on_comment
 `
 
 type CreateUserParams struct {
 	Username       string
 	Email          string
-	HashedPassword string
+	HashedPassword sql.NullString
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -37,12 +38,14 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.HashedPassword,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EmailVerifiedAt,
+		&i.NotifyOnComment,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, username, email, hashed_password, created_at, updated_at FROM users
+SELECT id, username, email, hashed_password, created_at, updated_at, email_verified_at, notify_on_comment FROM users
 WHERE email = $1 LIMIT 1
 `
 
@@ -56,12 +59,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.HashedPassword,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EmailVerifiedAt,
+		&i.NotifyOnComment,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, email, hashed_password, created_at, updated_at FROM users
+SELECT id, username, email, hashed_password, created_at, updated_at, email_verified_at, notify_on_comment FROM users
 WHERE id = $1 LIMIT 1
 `
 
@@ -75,6 +80,35 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.HashedPassword,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EmailVerifiedAt,
+		&i.NotifyOnComment,
 	)
 	return i, err
+}
+
+const markEmailVerified = `-- name: MarkEmailVerified :exec
+UPDATE users
+SET email_verified_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) MarkEmailVerified(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, markEmailVerified, id)
+	return err
+}
+
+const updateNotifyOnComment = `-- name: UpdateNotifyOnComment :exec
+UPDATE users
+SET notify_on_comment = $1
+WHERE id = $2
+`
+
+type UpdateNotifyOnCommentParams struct {
+	NotifyOnComment bool
+	ID              uuid.UUID
+}
+
+func (q *Queries) UpdateNotifyOnComment(ctx context.Context, arg UpdateNotifyOnCommentParams) error {
+	_, err := q.db.ExecContext(ctx, updateNotifyOnComment, arg.NotifyOnComment, arg.ID)
+	return err
 }

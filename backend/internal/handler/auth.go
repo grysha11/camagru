@@ -32,7 +32,7 @@ func (h *Handler) RegisterUser(ctx context.Context, r api.RegisterUserRequestObj
 	_, err = h.Cfg.DB.CreateUser(ctx, db.CreateUserParams{
 		Username: r.Body.Username,
 		Email: string(r.Body.Email),
-		HashedPassword: hashedPassword,
+		HashedPassword: sql.NullString{String: hashedPassword, Valid: true},
 	})
 	if err != nil {
 		slog.Warn("Registration rejected: database unique constraint conflict", slog.Any("error", err), slog.String("email", string(r.Body.Email)), slog.String("username", r.Body.Username))
@@ -53,7 +53,12 @@ func (h *Handler) LoginUser(ctx context.Context, r api.LoginUserRequestObject) (
 		return api.LoginUser401JSONResponse{Error: "Invalid email or password"}, nil
 	}
 
-	if err := auth.CheckHash(r.Body.Password, user.HashedPassword); err != nil {
+	if !user.HashedPassword.Valid {
+		slog.Warn("Login failed: account has no password set", slog.String("email", string(r.Body.Email)))
+		return api.LoginUser401JSONResponse{Error: "Invalid email or password"}, nil
+	}
+
+	if err := auth.CheckHash(r.Body.Password, user.HashedPassword.String); err != nil {
 		slog.Warn("Login failed: incorrect password", slog.String("email", string(r.Body.Email)))
 		return api.LoginUser401JSONResponse{Error: "Invalid email or password"}, nil
 	}

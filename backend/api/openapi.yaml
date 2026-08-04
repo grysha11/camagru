@@ -22,7 +22,7 @@ paths:
                     type: string
                     example: "ok"
 
-  /register:
+  /api/register:
     post:
       summary: Register a new user
       operationId: RegisterUser
@@ -46,7 +46,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /login:
+  /api/login:
     post:
       summary: Log in a user
       operationId: LoginUser
@@ -75,7 +75,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /refresh:
+  /api/refresh:
     post:
       summary: Refresh the access token
       operationId: RefreshToken
@@ -98,7 +98,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /me:
+  /api/me:
     get:
       summary: Get the current authenticated user
       operationId: GetMe
@@ -116,7 +116,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /logout:
+  /api/logout:
     post:
       summary: Log out a user
       operationId: LogoutUser

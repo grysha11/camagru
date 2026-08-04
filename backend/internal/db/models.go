@@ -11,6 +11,45 @@ import (
 	"github.com/google/uuid"
 )
 
+type Comment struct {
+	ID        uuid.UUID
+	PostID    uuid.UUID
+	UserID    uuid.UUID
+	Content   string
+	CreatedAt time.Time
+}
+
+type EmailToken struct {
+	TokenHash string
+	UserID    uuid.UUID
+	Purpose   string
+	ExpiredAt time.Time
+	UsedAt    sql.NullTime
+	CreatedAt time.Time
+}
+
+type Like struct {
+	PostID    uuid.UUID
+	UserID    uuid.UUID
+	CreatedAt time.Time
+}
+
+type OauthIdentity struct {
+	ID             uuid.UUID
+	UserID         uuid.UUID
+	Provider       string
+	ProviderUserID string
+	CreatedAt      time.Time
+}
+
+type Post struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	ImagePath string
+	OverlayID sql.NullString
+	CreatedAt time.Time
+}
+
 type RefreshToken struct {
 	TokenHash string
 	UserID    uuid.UUID
@@ -20,10 +59,12 @@ type RefreshToken struct {
 }
 
 type User struct {
-	ID             uuid.UUID
-	Username       string
-	Email          string
-	HashedPassword string
-	CreatedAt      sql.NullTime
-	UpdatedAt      sql.NullTime
+	ID              uuid.UUID
+	Username        string
+	Email           string
+	HashedPassword  sql.NullString
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
+	EmailVerifiedAt sql.NullTime
+	NotifyOnComment bool
 }

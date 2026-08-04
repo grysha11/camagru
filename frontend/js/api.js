@@ -8,7 +8,7 @@ async function handleResponse(response) {
 
 export const api = {
     async register(username, email, password) {
-        const response = await fetch("/register", {
+        const response = await fetch("/api/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, email, password }),
@@ -17,7 +17,7 @@ export const api = {
     },
 
     async login(email, password) {
-        const response = await fetch("/login", {
+        const response = await fetch("/api/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
@@ -27,12 +27,12 @@ export const api = {
     },
 
     async me() {
-        const response = await fetch("/me", { credentials: "include" });
+        const response = await fetch("/api/me", { credentials: "include" });
         return handleResponse(response);
     },
 
     async refresh() {
-        const response = await fetch("/refresh", {
+        const response = await fetch("/api/refresh", {
             method: "POST",
             credentials: "include",
         });
@@ -40,7 +40,7 @@ export const api = {
     },
 
     async logout() {
-        const response = await fetch("/logout", {
+        const response = await fetch("/api/logout", {
             method: "POST",
             credentials: "include",
         });

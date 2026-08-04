@@ -19,6 +19,7 @@ COPY --from=builder /app/camagru-api .
 COPY --from=builder /go/bin/goose /usr/local/bin/goose
 COPY --from=builder /app/entrypoint.sh .
 COPY --from=builder /app/sql/schema ./sql/schema
+COPY --from=builder /app/api ./api
 
 RUN chmod +x ./entrypoint.sh
 
