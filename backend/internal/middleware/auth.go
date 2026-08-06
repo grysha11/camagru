@@ -17,7 +17,7 @@ const RefreshTokenKey contextKey = "refreshToken"
 func AuthMiddleware(secret string) api.StrictMiddlewareFunc {
 	return func(f api.StrictHandlerFunc, operationID string) api.StrictHandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error) {
-			if operationID != "GetMe" {
+			if operationID != "GetMe" && operationID != "RequestPasswordChange" {
 				return f(ctx, w, r, request)
 			}
 

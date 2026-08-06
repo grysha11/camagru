@@ -71,7 +71,7 @@ func RateLimitMiddleware(limiter *RateLimiter) api.StrictMiddlewareFunc {
 	return func(f api.StrictHandlerFunc, operationID string) api.StrictHandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error) {
 			switch operationID {
-			case "LoginUser", "RegisterUser":
+			case "LoginUser", "RegisterUser", "ConfirmEmail", "ForgotPassword", "ResetPassword":
 				if !limiter.Allow(operationID + ":" + clientIP(r)) {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusTooManyRequests)

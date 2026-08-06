@@ -24,6 +24,15 @@ services:
       - ./backend:/app
     depends_on:
       - db
+      - mailpit
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: camagru-mailpit
+    restart: always
+    ports:
+      - "8025:8025"
+      - "1025:1025"
 
   proxy:
     image: caddy:2-alpine

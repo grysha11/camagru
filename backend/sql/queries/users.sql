@@ -24,3 +24,8 @@ WHERE id = $1;
 UPDATE users
 SET notify_on_comment = $1
 WHERE id = $2;
+
+-- name: UpdateUserPassword :exec
+UPDATE users
+SET hashed_password = $1, updated_at = NOW()
+WHERE id = $2;

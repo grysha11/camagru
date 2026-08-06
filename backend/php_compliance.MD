@@ -62,3 +62,12 @@ Basic server necessities like reading environment variables and logging errors.
 | `os.Getenv("DB_URL")` | `getenv('DB_URL')` || `$_ENV['DB_URL']` | Reading configuration from the environment. |
 | `log.Printf(...)` | `error_log(...)` | Writing formatted outputs to the standard error stream. |
 | `unicode.IsUpper(char)` | `ctype_upper($char)` || `preg_match('/[A-Z]/')` | Character inspection for the password strength validator. |
+
+## 7. Email Delivery
+
+Sending confirmation and password-reset emails over SMTP.
+
+| Go Implementation (`net/smtp`) | PHP Standard Library Equivalent | Explanation |
+| --- | --- | --- |
+| `smtp.SendMail(...)` | `mail(...)` || raw SMTP via `fsockopen` | Sending outbound email over SMTP. |
+| `smtp.PlainAuth(...)` | manual `AUTH PLAIN` SMTP command | SMTP authentication handshake. |

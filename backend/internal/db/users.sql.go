@@ -112,3 +112,19 @@ func (q *Queries) UpdateNotifyOnComment(ctx context.Context, arg UpdateNotifyOnC
 	_, err := q.db.ExecContext(ctx, updateNotifyOnComment, arg.NotifyOnComment, arg.ID)
 	return err
 }
+
+const updateUserPassword = `-- name: UpdateUserPassword :exec
+UPDATE users
+SET hashed_password = $1, updated_at = NOW()
+WHERE id = $2
+`
+
+type UpdateUserPasswordParams struct {
+	HashedPassword sql.NullString
+	ID             uuid.UUID
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserPassword, arg.HashedPassword, arg.ID)
+	return err
+}

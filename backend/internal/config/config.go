@@ -5,19 +5,39 @@ import (
 	"os"
 	"database/sql"
 	"github.com/grysha11/camagru-backend/internal/db"
+	"github.com/grysha11/camagru-backend/internal/mailer"
 )
 type Config struct {
 	DB	*db.Queries
 	JWTSecret string
+	Mailer *mailer.Mailer
+	AppBaseURL string
+}
+
+func mustEnv(key string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		log.Fatalf("%s environment variable is required", key)
+	}
+	return value
 }
 
 func NewConfig(database *sql.DB) *Config {
-	jwt := os.Getenv("JWT_SECRET")
-	if jwt == "" {
-		log.Fatal("JWT_SECRET environment variable is required")
-	}
+	jwt := mustEnv("JWT_SECRET")
+	appBaseURL := mustEnv("APP_BASE_URL")
+
+	m := mailer.New(mailer.Config{
+		Host:     mustEnv("SMTP_HOST"),
+		Port:     mustEnv("SMTP_PORT"),
+		User:     os.Getenv("SMTP_USER"),
+		Password: os.Getenv("SMTP_PASSWORD"),
+		From:     mustEnv("SMTP_FROM"),
+	})
+
 	return &Config{
 		DB: db.New(database),
 		JWTSecret: jwt,
+		Mailer: m,
+		AppBaseURL: appBaseURL,
 	}
 }

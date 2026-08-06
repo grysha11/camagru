@@ -45,5 +45,36 @@ export const api = {
             credentials: "include",
         });
         return handleResponse(response);
+    },
+
+    async confirmEmail(token) {
+        const response = await fetch(`/api/confirm-email?token=${encodeURIComponent(token)}`);
+        return handleResponse(response);
+    },
+
+    async forgotPassword(email) {
+        const response = await fetch("/api/forgot-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+        });
+        return handleResponse(response);
+    },
+
+    async requestPasswordChange() {
+        const response = await fetch("/api/request-password-change", {
+            method: "POST",
+            credentials: "include",
+        });
+        return handleResponse(response);
+    },
+
+    async resetPassword(token, password) {
+        const response = await fetch("/api/reset-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token, password }),
+        });
+        return handleResponse(response);
     }
 };

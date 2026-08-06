@@ -37,7 +37,7 @@ func ValidateAccessToken(tokenString, secret string) (string, error) {
 	return claims.Subject, nil
 }
 
-func GenerateRefreshToken() (string, error) {
+func GenerateRandomToken() (string, error) {
 	tmp := make([]byte, 32)
 	if _, err := rand.Read(tmp); err != nil {
 		return "", err
@@ -46,7 +46,7 @@ func GenerateRefreshToken() (string, error) {
 	return base64.URLEncoding.EncodeToString(tmp), nil
 }
 
-func HashRefreshToken(rawToken string) string {
+func HashToken(rawToken string) string {
 	sum := sha256.Sum256([]byte(rawToken))
 	return hex.EncodeToString(sum[:])
 }

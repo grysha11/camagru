@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
             const res = await api.register(username, email, password);
-            showMessage(res.message + " You can now log in.");
+            showMessage(res.message);
             registerForm.reset();
         } catch (error) {
             showMessage(error.message, true);
