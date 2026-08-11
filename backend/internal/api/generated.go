@@ -68,6 +68,13 @@ type ConfirmEmailParams struct {
 	Token string `form:"token" json:"token"`
 }
 
+// GitHubOAuthCallbackParams defines parameters for GitHubOAuthCallback.
+type GitHubOAuthCallbackParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State string  `form:"state" json:"state"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
 // ForgotPasswordJSONRequestBody defines body for ForgotPassword for application/json ContentType.
 type ForgotPasswordJSONRequestBody = ForgotPasswordRequest
 
@@ -97,6 +104,12 @@ type ServerInterface interface {
 	// Get the current authenticated user
 	// (GET /api/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// Handle the GitHub OAuth2 callback
+	// (GET /api/oauth/github/callback)
+	GitHubOAuthCallback(w http.ResponseWriter, r *http.Request, params GitHubOAuthCallbackParams)
+	// Start GitHub OAuth2 login
+	// (GET /api/oauth/github/login)
+	GitHubOAuthLogin(w http.ResponseWriter, r *http.Request)
 	// Refresh the access token
 	// (POST /api/refresh)
 	RefreshToken(w http.ResponseWriter, r *http.Request)
@@ -203,6 +216,79 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GitHubOAuthCallback operation middleware
+func (siw *ServerInterfaceWrapper) GitHubOAuthCallback(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GitHubOAuthCallbackParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GitHubOAuthCallback(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GitHubOAuthLogin operation middleware
+func (siw *ServerInterfaceWrapper) GitHubOAuthLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GitHubOAuthLogin(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -407,6 +493,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/login", wrapper.LoginUser)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/logout", wrapper.LogoutUser)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/me", wrapper.GetMe)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/oauth/github/callback", wrapper.GitHubOAuthCallback)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/oauth/github/login", wrapper.GitHubOAuthLogin)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/refresh", wrapper.RefreshToken)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/register", wrapper.RegisterUser)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/request-password-change", wrapper.RequestPasswordChange)
@@ -582,6 +670,75 @@ func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) e
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GitHubOAuthCallbackRequestObject struct {
+	Params GitHubOAuthCallbackParams
+}
+
+type GitHubOAuthCallbackResponseObject interface {
+	VisitGitHubOAuthCallbackResponse(w http.ResponseWriter) error
+}
+
+type GitHubOAuthCallback302ResponseHeaders struct {
+	Location  *string
+	SetCookie *string
+}
+
+type GitHubOAuthCallback302Response struct {
+	Headers GitHubOAuthCallback302ResponseHeaders
+}
+
+func (response GitHubOAuthCallback302Response) VisitGitHubOAuthCallbackResponse(w http.ResponseWriter) error {
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(302)
+	return nil
+}
+
+type GitHubOAuthLoginRequestObject struct {
+}
+
+type GitHubOAuthLoginResponseObject interface {
+	VisitGitHubOAuthLoginResponse(w http.ResponseWriter) error
+}
+
+type GitHubOAuthLogin302ResponseHeaders struct {
+	Location  *string
+	SetCookie *string
+}
+
+type GitHubOAuthLogin302Response struct {
+	Headers GitHubOAuthLogin302ResponseHeaders
+}
+
+func (response GitHubOAuthLogin302Response) VisitGitHubOAuthLoginResponse(w http.ResponseWriter) error {
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(302)
+	return nil
+}
+
+type GitHubOAuthLogin500JSONResponse ErrorResponse
+
+func (response GitHubOAuthLogin500JSONResponse) VisitGitHubOAuthLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -778,6 +935,12 @@ type StrictServerInterface interface {
 	// Get the current authenticated user
 	// (GET /api/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// Handle the GitHub OAuth2 callback
+	// (GET /api/oauth/github/callback)
+	GitHubOAuthCallback(ctx context.Context, request GitHubOAuthCallbackRequestObject) (GitHubOAuthCallbackResponseObject, error)
+	// Start GitHub OAuth2 login
+	// (GET /api/oauth/github/login)
+	GitHubOAuthLogin(ctx context.Context, request GitHubOAuthLoginRequestObject) (GitHubOAuthLoginResponseObject, error)
 	// Refresh the access token
 	// (POST /api/refresh)
 	RefreshToken(ctx context.Context, request RefreshTokenRequestObject) (RefreshTokenResponseObject, error)
@@ -953,6 +1116,56 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GitHubOAuthCallback operation middleware
+func (sh *strictHandler) GitHubOAuthCallback(w http.ResponseWriter, r *http.Request, params GitHubOAuthCallbackParams) {
+	var request GitHubOAuthCallbackRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GitHubOAuthCallback(ctx, request.(GitHubOAuthCallbackRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GitHubOAuthCallback")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GitHubOAuthCallbackResponseObject); ok {
+		if err := validResponse.VisitGitHubOAuthCallbackResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GitHubOAuthLogin operation middleware
+func (sh *strictHandler) GitHubOAuthLogin(w http.ResponseWriter, r *http.Request) {
+	var request GitHubOAuthLoginRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GitHubOAuthLogin(ctx, request.(GitHubOAuthLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GitHubOAuthLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GitHubOAuthLoginResponseObject); ok {
+		if err := validResponse.VisitGitHubOAuthLoginResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

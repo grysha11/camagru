@@ -1,17 +1,20 @@
 package config
 
 import (
-	"log"
-	"os"
 	"database/sql"
 	"github.com/grysha11/camagru-backend/internal/db"
 	"github.com/grysha11/camagru-backend/internal/mailer"
+	"github.com/grysha11/camagru-backend/internal/oauth"
+	"log"
+	"os"
 )
+
 type Config struct {
-	DB	*db.Queries
-	JWTSecret string
-	Mailer *mailer.Mailer
+	DB         *db.Queries
+	JWTSecret  string
+	Mailer     *mailer.Mailer
 	AppBaseURL string
+	GitHub     *oauth.GitHubClient
 }
 
 func mustEnv(key string) string {
@@ -34,10 +37,17 @@ func NewConfig(database *sql.DB) *Config {
 		From:     mustEnv("SMTP_FROM"),
 	})
 
+	gh := oauth.NewGitHubClient(oauth.GitHubConfig{
+		ClientID:     mustEnv("GITHUB_CLIENT_ID"),
+		ClientSecret: mustEnv("GITHUB_CLIENT_SECRET"),
+		RedirectURL:  mustEnv("GITHUB_REDIRECT_URL"),
+	})
+
 	return &Config{
-		DB: db.New(database),
-		JWTSecret: jwt,
-		Mailer: m,
+		DB:         db.New(database),
+		JWTSecret:  jwt,
+		Mailer:     m,
 		AppBaseURL: appBaseURL,
+		GitHub:     gh,
 	}
 }

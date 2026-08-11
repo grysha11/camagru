@@ -11,8 +11,10 @@ import (
 )
 
 type contextKey string
+
 const UserIDKey contextKey = "userID"
 const RefreshTokenKey contextKey = "refreshToken"
+const OAuthStateKey contextKey = "oauthState"
 
 func AuthMiddleware(secret string) api.StrictMiddlewareFunc {
 	return func(f api.StrictHandlerFunc, operationID string) api.StrictHandlerFunc {
@@ -60,6 +62,10 @@ func RefreshTokenContextMiddleware() api.StrictMiddlewareFunc {
 				if cookie, err := r.Cookie("refresh_token"); err == nil && cookie.Value != "" {
 					ctx = context.WithValue(ctx, RefreshTokenKey, cookie.Value)
 				}
+			case "GitHubOAuthCallback":
+				if cookie, err := r.Cookie("oauth_state"); err == nil && cookie.Value != "" {
+					ctx = context.WithValue(ctx, OAuthStateKey, cookie.Value)
+				}
 			}
 			return f(ctx, w, r, request)
 		}
@@ -81,6 +87,12 @@ func MultiCookieMiddleware() api.StrictMiddlewareFunc {
 				splitAndClear(w, &resp.Headers.SetCookie)
 				return resp, nil
 			case api.RefreshToken200JSONResponse:
+				splitAndClear(w, &resp.Headers.SetCookie)
+				return resp, nil
+			case api.GitHubOAuthLogin302Response:
+				splitAndClear(w, &resp.Headers.SetCookie)
+				return resp, nil
+			case api.GitHubOAuthCallback302Response:
 				splitAndClear(w, &resp.Headers.SetCookie)
 				return resp, nil
 			default:

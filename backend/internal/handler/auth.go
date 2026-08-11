@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -42,8 +42,8 @@ func (h *Handler) RegisterUser(ctx context.Context, r api.RegisterUserRequestObj
 	}
 
 	user, err := h.Cfg.DB.CreateUser(ctx, db.CreateUserParams{
-		Username: r.Body.Username,
-		Email: string(r.Body.Email),
+		Username:       r.Body.Username,
+		Email:          string(r.Body.Email),
 		HashedPassword: sql.NullString{String: hashedPassword, Valid: true},
 	})
 	if err != nil {
@@ -96,6 +96,31 @@ func (h *Handler) sendEmailToken(ctx context.Context, userID uuid.UUID, email, p
 	return h.Cfg.Mailer.Send(email, subject, body)
 }
 
+func (h *Handler) issueSessionCookies(ctx context.Context, userID uuid.UUID) (string, error) {
+	accessToken, err := auth.GenerateAccessToken(userID.String(), h.Cfg.JWTSecret, 15*time.Minute)
+	if err != nil {
+		return "", err
+	}
+
+	refreshToken, err := auth.GenerateRandomToken()
+	if err != nil {
+		return "", err
+	}
+
+	if err := h.Cfg.DB.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{
+		TokenHash: auth.HashToken(refreshToken),
+		UserID:    userID,
+		ExpiredAt: time.Now().Add(7 * 24 * time.Hour),
+	}); err != nil {
+		return "", err
+	}
+
+	accessCookie := fmt.Sprintf("access_token=%s; Path=/; Max-Age=%d; HttpOnly; Secure; SameSite=Strict", accessToken, 15*60)
+	refreshCookie := fmt.Sprintf("refresh_token=%s; Path=/; Max-Age=%d; HttpOnly; Secure; SameSite=Strict", refreshToken, 7*24*60*60)
+
+	return accessCookie + "\n" + refreshCookie, nil
+}
+
 func (h *Handler) LoginUser(ctx context.Context, r api.LoginUserRequestObject) (api.LoginUserResponseObject, error) {
 	user, err := h.Cfg.DB.GetUserByEmail(ctx, string(r.Body.Email))
 	if err != nil {
@@ -122,30 +147,11 @@ func (h *Handler) LoginUser(ctx context.Context, r api.LoginUserRequestObject) (
 		return api.LoginUser401JSONResponse{Error: "Please confirm your email before logging in"}, nil
 	}
 
-	accessToken, err := auth.GenerateAccessToken(user.ID.String(), h.Cfg.JWTSecret, 15*time.Minute)
+	cookieHeader, err := h.issueSessionCookies(ctx, user.ID)
 	if err != nil {
-		return api.LoginUser401JSONResponse{Error: "Could not generate access token"}, nil
-	}
-
-	refreshToken, err := auth.GenerateRandomToken()
-	if err != nil {
-		return api.LoginUser401JSONResponse{Error: "Could not generate refresh token"}, nil
-	}
-
-	expiresAt := time.Now().Add(7 * 24 * time.Hour)
-	err = h.Cfg.DB.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{
-		TokenHash: auth.HashToken(refreshToken),
-		UserID: user.ID,
-		ExpiredAt: expiresAt,
-	})
-	if err != nil {
+		slog.Error("Login failed: could not issue session", slog.Any("error", err), slog.String("user_id", user.ID.String()))
 		return api.LoginUser401JSONResponse{Error: "Could not create session"}, nil
 	}
-
-	accessCookie := fmt.Sprintf("access_token=%s; Path=/; Max-Age=%d; HttpOnly; Secure; SameSite=Strict", accessToken, 15*60)
-	refreshCookie := fmt.Sprintf("refresh_token=%s; Path=/; Max-Age=%d; HttpOnly; Secure; SameSite=Strict", refreshToken, 7*24*60*60)
-
-	cookieHeader := accessCookie + "\n" + refreshCookie
 
 	return api.LoginUser200JSONResponse{
 		Body: api.SuccessResponse{Message: "Successfully logged in"},
@@ -184,31 +190,14 @@ func (h *Handler) RefreshToken(ctx context.Context, r api.RefreshTokenRequestObj
 		return api.RefreshToken401JSONResponse{Error: "Session expired, please log in again"}, nil
 	}
 
-	newAccessToken, err := auth.GenerateAccessToken(dbToken.UserID.String(), h.Cfg.JWTSecret, 15*time.Minute)
+	cookieHeader, err := h.issueSessionCookies(ctx, dbToken.UserID)
 	if err != nil {
-		return api.RefreshToken401JSONResponse{Error: "Could not generate access token"}, nil
-	}
-
-	newRefreshToken, err := auth.GenerateRandomToken()
-	if err != nil {
-		return api.RefreshToken401JSONResponse{Error: "Could not generate refresh token"}, nil
-	}
-
-	newExpiresAt := time.Now().Add(7 * 24 * time.Hour)
-	if err := h.Cfg.DB.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{
-		TokenHash: auth.HashToken(newRefreshToken),
-		UserID: dbToken.UserID,
-		ExpiredAt: newExpiresAt,
-	}); err != nil {
+		slog.Error("Refresh failed: could not issue session", slog.Any("error", err), slog.String("user_id", dbToken.UserID.String()))
 		return api.RefreshToken401JSONResponse{Error: "Could not create session"}, nil
 	}
 	if err := h.Cfg.DB.RevokeRefreshToken(ctx, tokenHash); err != nil {
 		slog.Error("Failed to revoke old refresh token after rotation", slog.Any("error", err), slog.String("user_id", dbToken.UserID.String()))
 	}
-
-	accessCookie := fmt.Sprintf("access_token=%s; Path=/; Max-Age=%d; HttpOnly; Secure; SameSite=Strict", newAccessToken, 15*60)
-	refreshCookie := fmt.Sprintf("refresh_token=%s; Path=/; Max-Age=%d; HttpOnly; Secure; SameSite=Strict", newRefreshToken, 7*24*60*60)
-	cookieHeader := accessCookie + "\n" + refreshCookie
 
 	return api.RefreshToken200JSONResponse{
 		Body: api.SuccessResponse{Message: "Token refreshed"},
