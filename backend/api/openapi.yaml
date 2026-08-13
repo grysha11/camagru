@@ -271,6 +271,91 @@ paths:
                 type: string
               description: "Clears oauth_state; on success also sets access_token/refresh_token"
 
+  /api/overlays:
+    get:
+      summary: List available overlay PNGs
+      operationId: ListOverlays
+      responses:
+        '200':
+          description: Available overlays
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OverlayResponse'
+
+  /api/posts/mine:
+    get:
+      summary: List the authenticated user's own posts
+      operationId: ListMyPosts
+      responses:
+        '200':
+          description: The user's posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PostResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Could not load posts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/posts:
+    post:
+      summary: Capture/upload a photo composited with an overlay
+      operationId: CreatePost
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - image
+                - overlay_id
+              properties:
+                image:
+                  type: string
+                  format: binary
+                overlay_id:
+                  type: string
+      responses:
+        '201':
+          description: Post created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostResponse'
+        '400':
+          description: Bad request (invalid image, unknown overlay, too large)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Could not save post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     RegisterRequest:
@@ -353,6 +438,36 @@ components:
         email:
           type: string
           format: email
+
+    OverlayResponse:
+      type: object
+      required:
+        - id
+        - url
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+
+    PostResponse:
+      type: object
+      required:
+        - id
+        - image_path
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        image_path:
+          type: string
+        overlay_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
 
     SuccessResponse:
       type: object

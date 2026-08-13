@@ -11,7 +11,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"mime/multipart"
 	"net/http"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -33,9 +35,23 @@ type LoginRequest struct {
 	Password string              `json:"password"`
 }
 
+// OverlayResponse defines model for OverlayResponse.
+type OverlayResponse struct {
+	Id  string `json:"id"`
+	Url string `json:"url"`
+}
+
 // PasswordChangeTokenResponse defines model for PasswordChangeTokenResponse.
 type PasswordChangeTokenResponse struct {
 	Token string `json:"token"`
+}
+
+// PostResponse defines model for PostResponse.
+type PostResponse struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+	ImagePath string             `json:"image_path"`
+	OverlayId *string            `json:"overlay_id,omitempty"`
 }
 
 // RegisterRequest defines model for RegisterRequest.
@@ -75,11 +91,20 @@ type GitHubOAuthCallbackParams struct {
 	Error *string `form:"error,omitempty" json:"error,omitempty"`
 }
 
+// CreatePostMultipartBody defines parameters for CreatePost.
+type CreatePostMultipartBody struct {
+	Image     openapi_types.File `json:"image"`
+	OverlayId string             `json:"overlay_id"`
+}
+
 // ForgotPasswordJSONRequestBody defines body for ForgotPassword for application/json ContentType.
 type ForgotPasswordJSONRequestBody = ForgotPasswordRequest
 
 // LoginUserJSONRequestBody defines body for LoginUser for application/json ContentType.
 type LoginUserJSONRequestBody = LoginRequest
+
+// CreatePostMultipartRequestBody defines body for CreatePost for multipart/form-data ContentType.
+type CreatePostMultipartRequestBody CreatePostMultipartBody
 
 // RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
 type RegisterUserJSONRequestBody = RegisterRequest
@@ -110,6 +135,15 @@ type ServerInterface interface {
 	// Start GitHub OAuth2 login
 	// (GET /api/oauth/github/login)
 	GitHubOAuthLogin(w http.ResponseWriter, r *http.Request)
+	// List available overlay PNGs
+	// (GET /api/overlays)
+	ListOverlays(w http.ResponseWriter, r *http.Request)
+	// Capture/upload a photo composited with an overlay
+	// (POST /api/posts)
+	CreatePost(w http.ResponseWriter, r *http.Request)
+	// List the authenticated user's own posts
+	// (GET /api/posts/mine)
+	ListMyPosts(w http.ResponseWriter, r *http.Request)
 	// Refresh the access token
 	// (POST /api/refresh)
 	RefreshToken(w http.ResponseWriter, r *http.Request)
@@ -289,6 +323,48 @@ func (siw *ServerInterfaceWrapper) GitHubOAuthLogin(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GitHubOAuthLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOverlays operation middleware
+func (siw *ServerInterfaceWrapper) ListOverlays(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOverlays(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePost operation middleware
+func (siw *ServerInterfaceWrapper) CreatePost(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePost(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMyPosts operation middleware
+func (siw *ServerInterfaceWrapper) ListMyPosts(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyPosts(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -495,6 +571,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/oauth/github/callback", wrapper.GitHubOAuthCallback)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/oauth/github/login", wrapper.GitHubOAuthLogin)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/overlays", wrapper.ListOverlays)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/posts", wrapper.CreatePost)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/posts/mine", wrapper.ListMyPosts)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/refresh", wrapper.RefreshToken)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/register", wrapper.RegisterUser)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/request-password-change", wrapper.RequestPasswordChange)
@@ -743,6 +822,140 @@ func (response GitHubOAuthLogin500JSONResponse) VisitGitHubOAuthLoginResponse(w 
 	return err
 }
 
+type ListOverlaysRequestObject struct {
+}
+
+type ListOverlaysResponseObject interface {
+	VisitListOverlaysResponse(w http.ResponseWriter) error
+}
+
+type ListOverlays200JSONResponse []OverlayResponse
+
+func (response ListOverlays200JSONResponse) VisitListOverlaysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePostRequestObject struct {
+	Body *multipart.Reader
+}
+
+type CreatePostResponseObject interface {
+	VisitCreatePostResponse(w http.ResponseWriter) error
+}
+
+type CreatePost201JSONResponse PostResponse
+
+func (response CreatePost201JSONResponse) VisitCreatePostResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePost400JSONResponse ErrorResponse
+
+func (response CreatePost400JSONResponse) VisitCreatePostResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePost401JSONResponse ErrorResponse
+
+func (response CreatePost401JSONResponse) VisitCreatePostResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePost500JSONResponse ErrorResponse
+
+func (response CreatePost500JSONResponse) VisitCreatePostResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyPostsRequestObject struct {
+}
+
+type ListMyPostsResponseObject interface {
+	VisitListMyPostsResponse(w http.ResponseWriter) error
+}
+
+type ListMyPosts200JSONResponse []PostResponse
+
+func (response ListMyPosts200JSONResponse) VisitListMyPostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyPosts401JSONResponse ErrorResponse
+
+func (response ListMyPosts401JSONResponse) VisitListMyPostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyPosts500JSONResponse ErrorResponse
+
+func (response ListMyPosts500JSONResponse) VisitListMyPostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RefreshTokenRequestObject struct {
 }
 
@@ -941,6 +1154,15 @@ type StrictServerInterface interface {
 	// Start GitHub OAuth2 login
 	// (GET /api/oauth/github/login)
 	GitHubOAuthLogin(ctx context.Context, request GitHubOAuthLoginRequestObject) (GitHubOAuthLoginResponseObject, error)
+	// List available overlay PNGs
+	// (GET /api/overlays)
+	ListOverlays(ctx context.Context, request ListOverlaysRequestObject) (ListOverlaysResponseObject, error)
+	// Capture/upload a photo composited with an overlay
+	// (POST /api/posts)
+	CreatePost(ctx context.Context, request CreatePostRequestObject) (CreatePostResponseObject, error)
+	// List the authenticated user's own posts
+	// (GET /api/posts/mine)
+	ListMyPosts(ctx context.Context, request ListMyPostsRequestObject) (ListMyPostsResponseObject, error)
 	// Refresh the access token
 	// (POST /api/refresh)
 	RefreshToken(ctx context.Context, request RefreshTokenRequestObject) (RefreshTokenResponseObject, error)
@@ -1166,6 +1388,85 @@ func (sh *strictHandler) GitHubOAuthLogin(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GitHubOAuthLoginResponseObject); ok {
 		if err := validResponse.VisitGitHubOAuthLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListOverlays operation middleware
+func (sh *strictHandler) ListOverlays(w http.ResponseWriter, r *http.Request) {
+	var request ListOverlaysRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListOverlays(ctx, request.(ListOverlaysRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListOverlays")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListOverlaysResponseObject); ok {
+		if err := validResponse.VisitListOverlaysResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePost operation middleware
+func (sh *strictHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
+	var request CreatePostRequestObject
+
+	if reader, err := r.MultipartReader(); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode multipart body: %w", err))
+		return
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePost(ctx, request.(CreatePostRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePost")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePostResponseObject); ok {
+		if err := validResponse.VisitCreatePostResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMyPosts operation middleware
+func (sh *strictHandler) ListMyPosts(w http.ResponseWriter, r *http.Request) {
+	var request ListMyPostsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMyPosts(ctx, request.(ListMyPostsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMyPosts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMyPostsResponseObject); ok {
+		if err := validResponse.VisitListMyPostsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

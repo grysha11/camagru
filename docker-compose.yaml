@@ -22,6 +22,7 @@ services:
       - "${BACKEND_PORT}:${BACKEND_PORT}"
     volumes:
       - ./backend:/app
+      - uploads:/app/uploads
     depends_on:
       - db
       - mailpit
@@ -43,8 +44,10 @@ services:
     volumes:
       - ./infra/Caddyfile:/etc/caddy/Caddyfile
       - ./frontend:/var/www/frontend
+      - uploads:/var/www/uploads
     depends_on:
       - backend
 
 volumes:
   pgdata:
+  uploads:

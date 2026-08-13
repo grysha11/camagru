@@ -76,5 +76,24 @@ export const api = {
             body: JSON.stringify({ token, password }),
         });
         return handleResponse(response);
+    },
+
+    async listOverlays() {
+        const response = await fetch("/api/overlays", { credentials: "include" });
+        return handleResponse(response);
+    },
+
+    async myPosts() {
+        const response = await fetch("/api/posts/mine", { credentials: "include" });
+        return handleResponse(response);
+    },
+
+    async uploadPost(formData) {
+        const response = await fetch("/api/posts", {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+        });
+        return handleResponse(response);
     }
 };

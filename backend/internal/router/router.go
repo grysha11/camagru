@@ -25,7 +25,17 @@ func NewRouter(cfg *config.Config, h *handler.Handler) *http.ServeMux {
 	mux.HandleFunc(http.MethodGet+" /swagger", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/docs", http.StatusMovedPermanently)
 	})
-	
+
+	mux.HandleFunc(http.MethodGet+" /api/overlays/{id}", func(w http.ResponseWriter, r *http.Request) {
+		entry, ok := cfg.Overlays.Get(r.PathValue("id"))
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Write(entry.Bytes)
+	})
+
 	loginLimiter := middleware.NewRateLimiter(5, time.Minute)
 	strictHandler := api.NewStrictHandler(h, []api.StrictMiddlewareFunc{
 		middleware.RateLimitMiddleware(loginLimiter),

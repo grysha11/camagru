@@ -6,7 +6,6 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/google/uuid"
 	"github.com/oapi-codegen/runtime/types"
 
 	"github.com/grysha11/camagru-backend/internal/api"
@@ -14,13 +13,8 @@ import (
 )
 
 func (h *Handler) GetMe(ctx context.Context, r api.GetMeRequestObject) (api.GetMeResponseObject, error) {
-	userIDStr, ok := ctx.Value(middleware.UserIDKey).(string)
-	if !ok || userIDStr == "" {
-		return api.GetMe401JSONResponse{Error: "Not authenticated"}, nil
-	}
-
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
+	userID, ok := middleware.UserIDFromContext(ctx)
+	if !ok {
 		return api.GetMe401JSONResponse{Error: "Not authenticated"}, nil
 	}
 

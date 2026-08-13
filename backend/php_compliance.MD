@@ -71,3 +71,16 @@ Sending confirmation and password-reset emails over SMTP.
 | --- | --- | --- |
 | `smtp.SendMail(...)` | `mail(...)` || raw SMTP via `fsockopen` | Sending outbound email over SMTP. |
 | `smtp.PlainAuth(...)` | manual `AUTH PLAIN` SMTP command | SMTP authentication handshake. |
+
+## 8. Image Processing & File Storage
+
+Compositing uploaded photos with overlay PNGs and persisting them to disk.
+
+| Go Implementation | PHP Standard Library Equivalent | Explanation |
+| --- | --- | --- |
+| `image.Decode` / `image/png` / `image/jpeg` | GD extension (`imagecreatefrompng`, `imagecreatefromjpeg`) | Decoding uploaded image bytes into an in-memory bitmap. |
+| `image/draw` (`draw.Draw` with `draw.Over`) | GD's `imagecopy` / `imagealphablending` | Alpha-compositing the overlay PNG on top of the captured photo. |
+| `image/png.Encode` | `imagepng(...)` | Encoding the composited bitmap back to PNG bytes for storage. |
+| `mime/multipart.Reader` | `$_FILES` superglobal | Streaming/parsing an uploaded multipart file without a third-party form parser. |
+| `os.WriteFile` / `os.MkdirAll` | `move_uploaded_file(...)` | Persisting the uploaded/composited file to local disk storage. |
+| `github.com/google/uuid` (already a dependency) | `uniqid()` / `random_bytes()`-based filename | Generating collision-resistant random filenames instead of trusting client-supplied names. |

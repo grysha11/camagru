@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/grysha11/camagru-backend/internal/api"
 	"github.com/grysha11/camagru-backend/internal/auth"
 )
@@ -16,10 +18,23 @@ const UserIDKey contextKey = "userID"
 const RefreshTokenKey contextKey = "refreshToken"
 const OAuthStateKey contextKey = "oauthState"
 
+func UserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
+	userIDStr, ok := ctx.Value(UserIDKey).(string)
+	if !ok || userIDStr == "" {
+		return uuid.UUID{}, false
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return uuid.UUID{}, false
+	}
+	return userID, true
+}
+
 func AuthMiddleware(secret string) api.StrictMiddlewareFunc {
 	return func(f api.StrictHandlerFunc, operationID string) api.StrictHandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error) {
-			if operationID != "GetMe" && operationID != "RequestPasswordChange" {
+			if operationID != "GetMe" && operationID != "RequestPasswordChange" &&
+				operationID != "CreatePost" && operationID != "ListMyPosts" {
 				return f(ctx, w, r, request)
 			}
 

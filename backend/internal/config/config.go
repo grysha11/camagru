@@ -5,6 +5,8 @@ import (
 	"github.com/grysha11/camagru-backend/internal/db"
 	"github.com/grysha11/camagru-backend/internal/mailer"
 	"github.com/grysha11/camagru-backend/internal/oauth"
+	"github.com/grysha11/camagru-backend/internal/overlay"
+	"github.com/grysha11/camagru-backend/internal/storage"
 	"log"
 	"os"
 )
@@ -15,6 +17,8 @@ type Config struct {
 	Mailer     *mailer.Mailer
 	AppBaseURL string
 	GitHub     *oauth.GitHubClient
+	Storage    *storage.Storage
+	Overlays   *overlay.Store
 }
 
 func mustEnv(key string) string {
@@ -43,11 +47,23 @@ func NewConfig(database *sql.DB) *Config {
 		RedirectURL:  mustEnv("GITHUB_REDIRECT_URL"),
 	})
 
+	st := storage.New(storage.Config{
+		BasePath:  mustEnv("UPLOAD_PATH"),
+		URLPrefix: "/uploads",
+	})
+
+	ov, err := overlay.Load("./assets/overlays")
+	if err != nil {
+		log.Fatalf("failed to load overlays: %v", err)
+	}
+
 	return &Config{
 		DB:         db.New(database),
 		JWTSecret:  jwt,
 		Mailer:     m,
 		AppBaseURL: appBaseURL,
 		GitHub:     gh,
+		Storage:    st,
+		Overlays:   ov,
 	}
 }

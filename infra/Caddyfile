@@ -5,5 +5,10 @@
     reverse_proxy /docs backend:8080
     reverse_proxy /api/* backend:8080
 
+    handle_path /uploads/* {
+        root * /var/www/uploads
+        file_server
+    }
+
     file_server
 }

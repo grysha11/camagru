@@ -20,6 +20,7 @@ COPY --from=builder /go/bin/goose /usr/local/bin/goose
 COPY --from=builder /app/entrypoint.sh .
 COPY --from=builder /app/sql/schema ./sql/schema
 COPY --from=builder /app/api ./api
+COPY --from=builder /app/assets ./assets
 
 RUN chmod +x ./entrypoint.sh
 

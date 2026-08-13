@@ -309,13 +309,8 @@ func (h *Handler) ResetPassword(ctx context.Context, r api.ResetPasswordRequestO
 }
 
 func (h *Handler) RequestPasswordChange(ctx context.Context, r api.RequestPasswordChangeRequestObject) (api.RequestPasswordChangeResponseObject, error) {
-	userIDStr, ok := ctx.Value(middleware.UserIDKey).(string)
-	if !ok || userIDStr == "" {
-		return api.RequestPasswordChange401JSONResponse{Error: "Not authenticated"}, nil
-	}
-
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
+	userID, ok := middleware.UserIDFromContext(ctx)
+	if !ok {
 		return api.RequestPasswordChange401JSONResponse{Error: "Not authenticated"}, nil
 	}
 

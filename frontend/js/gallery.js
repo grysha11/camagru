@@ -34,7 +34,8 @@ function renderUser(user) {
             changePasswordBtn.disabled = true;
             try {
                 const { token } = await api.requestPasswordChange();
-                window.location.href = `/reset-password.html?token=${encodeURIComponent(token)}`;
+                sessionStorage.setItem("resetToken", token);
+                window.location.href = "/reset-password.html";
             } catch (error) {
                 showMessage(error.message, true);
                 changePasswordBtn.disabled = false;

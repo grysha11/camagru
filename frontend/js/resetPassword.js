@@ -12,7 +12,8 @@ document.addEventListener("DOMContentLoaded", () => {
         statusMessage.style.color = isError ? "red" : "green";
     };
 
-    const token = new URLSearchParams(window.location.search).get("token");
+    const token = new URLSearchParams(window.location.search).get("token") || sessionStorage.getItem("resetToken");
+    sessionStorage.removeItem("resetToken");
     if (!token) {
         showMessage("Missing or invalid reset link.", true);
         form.querySelector("button").disabled = true;

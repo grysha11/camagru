@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camagru - Capture</title>
+</head>
+<body>
+    <main>
+        <h1>Capture a Photo</h1>
+        <div id="status-message" style="font-weight: bold; margin-bottom: 15px;"></div>
+
+        <h2>Choose an overlay</h2>
+        <div id="overlay-list"></div>
+
+        <div style="position: relative; display: inline-block; margin-top: 15px;">
+            <video id="camera-preview" autoplay playsinline muted style="max-width: 100%;"></video>
+            <img id="overlay-preview" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none;">
+        </div>
+
+        <div style="margin-top: 15px;">
+            <button id="capture-btn" disabled>Capture</button>
+            <label for="file-fallback">Or upload a photo:</label>
+            <input type="file" id="file-fallback" accept="image/*" disabled>
+        </div>
+
+        <canvas id="capture-canvas" style="display: none;"></canvas>
+
+        <h2>Your Posts</h2>
+        <div id="my-posts"></div>
+    </main>
+    <script type="module" src="/js/capture.js"></script>
+</body>
+</html>

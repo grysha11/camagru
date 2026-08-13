@@ -2,6 +2,8 @@
 /backend/tmp/*
 /backend/main
 /backend/tmp
+/backend/uploads/*
+!/backend/uploads/.gitkeep
 CLAUDE.md
 TODO.md
 /.claude/
