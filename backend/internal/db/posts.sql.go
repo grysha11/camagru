@@ -89,40 +89,66 @@ func (q *Queries) GetPostByID(ctx context.Context, id uuid.UUID) (Post, error) {
 	return i, err
 }
 
+const getPostOwnerNotifyInfo = `-- name: GetPostOwnerNotifyInfo :one
+SELECT users.id AS user_id, users.email, users.notify_on_comment
+FROM posts
+JOIN users ON users.id = posts.user_id
+WHERE posts.id = $1
+`
+
+type GetPostOwnerNotifyInfoRow struct {
+	UserID          uuid.UUID
+	Email           string
+	NotifyOnComment bool
+}
+
+func (q *Queries) GetPostOwnerNotifyInfo(ctx context.Context, id uuid.UUID) (GetPostOwnerNotifyInfoRow, error) {
+	row := q.db.QueryRowContext(ctx, getPostOwnerNotifyInfo, id)
+	var i GetPostOwnerNotifyInfoRow
+	err := row.Scan(&i.UserID, &i.Email, &i.NotifyOnComment)
+	return i, err
+}
+
 const listPosts = `-- name: ListPosts :many
 SELECT
     posts.id,
     posts.user_id,
+    users.username,
     posts.image_path,
     posts.overlay_id,
     posts.created_at,
     COUNT(DISTINCT likes.user_id) AS like_count,
-    COUNT(DISTINCT comments.id) AS comment_count
+    COUNT(DISTINCT comments.id) AS comment_count,
+    COALESCE(BOOL_OR(likes.user_id = $3::uuid), false)::bool AS liked_by_me
 FROM posts
+JOIN users ON users.id = posts.user_id
 LEFT JOIN likes ON likes.post_id = posts.id
 LEFT JOIN comments ON comments.post_id = posts.id
-GROUP BY posts.id
+GROUP BY posts.id, users.username
 ORDER BY posts.created_at DESC
 LIMIT $1 OFFSET $2
 `
 
 type ListPostsParams struct {
-	Limit  int32
-	Offset int32
+	Limit    int32
+	Offset   int32
+	ViewerID uuid.NullUUID
 }
 
 type ListPostsRow struct {
 	ID           uuid.UUID
 	UserID       uuid.UUID
+	Username     string
 	ImagePath    string
 	OverlayID    sql.NullString
 	CreatedAt    time.Time
 	LikeCount    int64
 	CommentCount int64
+	LikedByMe    bool
 }
 
 func (q *Queries) ListPosts(ctx context.Context, arg ListPostsParams) ([]ListPostsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listPosts, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, listPosts, arg.Limit, arg.Offset, arg.ViewerID)
 	if err != nil {
 		return nil, err
 	}
@@ -133,11 +159,13 @@ func (q *Queries) ListPosts(ctx context.Context, arg ListPostsParams) ([]ListPos
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
+			&i.Username,
 			&i.ImagePath,
 			&i.OverlayID,
 			&i.CreatedAt,
 			&i.LikeCount,
 			&i.CommentCount,
+			&i.LikedByMe,
 		); err != nil {
 			return nil, err
 		}

@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -40,25 +41,79 @@ func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (C
 	return i, err
 }
 
-const listCommentsByPost = `-- name: ListCommentsByPost :many
-SELECT id, post_id, user_id, content, created_at FROM comments
-WHERE post_id = $1
-ORDER BY created_at ASC
+const deleteComment = `-- name: DeleteComment :execrows
+DELETE FROM comments
+WHERE id = $1 AND user_id = $2
 `
 
-func (q *Queries) ListCommentsByPost(ctx context.Context, postID uuid.UUID) ([]Comment, error) {
+type DeleteCommentParams struct {
+	ID     uuid.UUID
+	UserID uuid.UUID
+}
+
+func (q *Queries) DeleteComment(ctx context.Context, arg DeleteCommentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteComment, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const getCommentByID = `-- name: GetCommentByID :one
+SELECT id, post_id, user_id, content, created_at FROM comments
+WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetCommentByID(ctx context.Context, id uuid.UUID) (Comment, error) {
+	row := q.db.QueryRowContext(ctx, getCommentByID, id)
+	var i Comment
+	err := row.Scan(
+		&i.ID,
+		&i.PostID,
+		&i.UserID,
+		&i.Content,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const listCommentsByPost = `-- name: ListCommentsByPost :many
+SELECT
+    comments.id,
+    comments.post_id,
+    comments.user_id,
+    users.username,
+    comments.content,
+    comments.created_at
+FROM comments
+JOIN users ON users.id = comments.user_id
+WHERE comments.post_id = $1
+ORDER BY comments.created_at ASC
+`
+
+type ListCommentsByPostRow struct {
+	ID        uuid.UUID
+	PostID    uuid.UUID
+	UserID    uuid.UUID
+	Username  string
+	Content   string
+	CreatedAt time.Time
+}
+
+func (q *Queries) ListCommentsByPost(ctx context.Context, postID uuid.UUID) ([]ListCommentsByPostRow, error) {
 	rows, err := q.db.QueryContext(ctx, listCommentsByPost, postID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Comment
+	var items []ListCommentsByPostRow
 	for rows.Next() {
-		var i Comment
+		var i ListCommentsByPostRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.PostID,
 			&i.UserID,
+			&i.Username,
 			&i.Content,
 			&i.CreatedAt,
 		); err != nil {

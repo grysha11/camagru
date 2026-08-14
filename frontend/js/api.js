@@ -1,7 +1,9 @@
 async function handleResponse(response) {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(data.error || "An unexpected error ocurred");
+        const error = new Error(data.error || "An unexpected error ocurred");
+        error.status = response.status;
+        throw error;
     }
     return data;
 }
@@ -93,6 +95,58 @@ export const api = {
             method: "POST",
             credentials: "include",
             body: formData,
+        });
+        return handleResponse(response);
+    },
+
+    async listPosts(page = 1) {
+        const response = await fetch(`/api/posts?page=${encodeURIComponent(page)}`, { credentials: "include" });
+        return handleResponse(response);
+    },
+
+    async deletePost(id) {
+        const response = await fetch(`/api/posts/${encodeURIComponent(id)}`, {
+            method: "DELETE",
+            credentials: "include",
+        });
+        return handleResponse(response);
+    },
+
+    async likePost(id) {
+        const response = await fetch(`/api/posts/${encodeURIComponent(id)}/like`, {
+            method: "POST",
+            credentials: "include",
+        });
+        return handleResponse(response);
+    },
+
+    async unlikePost(id) {
+        const response = await fetch(`/api/posts/${encodeURIComponent(id)}/like`, {
+            method: "DELETE",
+            credentials: "include",
+        });
+        return handleResponse(response);
+    },
+
+    async listComments(id) {
+        const response = await fetch(`/api/posts/${encodeURIComponent(id)}/comments`, { credentials: "include" });
+        return handleResponse(response);
+    },
+
+    async createComment(id, content) {
+        const response = await fetch(`/api/posts/${encodeURIComponent(id)}/comments`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ content }),
+        });
+        return handleResponse(response);
+    },
+
+    async deleteComment(postId, commentId) {
+        const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`, {
+            method: "DELETE",
+            credentials: "include",
         });
         return handleResponse(response);
     }

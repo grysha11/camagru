@@ -32,3 +32,8 @@ func (s *Storage) Save(data []byte, ext string) (string, error) {
 	}
 	return path.Join(s.cfg.URLPrefix, filename), nil
 }
+
+func (s *Storage) Delete(imagePath string) error {
+	filename := filepath.Base(imagePath)
+	return os.Remove(filepath.Join(s.cfg.BasePath, filename))
+}

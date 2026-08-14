@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"io"
 	"log/slog"
 	"strings"
+
+	"github.com/google/uuid"
 
 	"github.com/grysha11/camagru-backend/internal/api"
 	"github.com/grysha11/camagru-backend/internal/db"
@@ -15,6 +18,7 @@ import (
 )
 
 const maxImageUploadSize = 8 << 20 // 8 MiB
+const postsPerPage = 10
 
 func (h *Handler) CreatePost(ctx context.Context, r api.CreatePostRequestObject) (api.CreatePostResponseObject, error) {
 	userID, ok := middleware.UserIDFromContext(ctx)
@@ -134,4 +138,94 @@ func (h *Handler) ListMyPosts(ctx context.Context, r api.ListMyPostsRequestObjec
 	}
 
 	return api.ListMyPosts200JSONResponse(resp), nil
+}
+
+func (h *Handler) ListPosts(ctx context.Context, r api.ListPostsRequestObject) (api.ListPostsResponseObject, error) {
+	page := 1
+	if r.Params.Page != nil && *r.Params.Page > 0 {
+		page = *r.Params.Page
+	}
+
+	var viewerID uuid.NullUUID
+	if userID, ok := middleware.UserIDFromContext(ctx); ok {
+		viewerID = uuid.NullUUID{UUID: userID, Valid: true}
+	}
+
+	rows, err := h.Cfg.DB.ListPosts(ctx, db.ListPostsParams{
+		Limit:    postsPerPage,
+		Offset:   int32((page - 1) * postsPerPage),
+		ViewerID: viewerID,
+	})
+	if err != nil {
+		slog.Error("ListPosts: db error", slog.Any("error", err))
+		return api.ListPosts500JSONResponse{Error: "Could not load posts"}, nil
+	}
+
+	totalPosts, err := h.Cfg.DB.CountPosts(ctx)
+	if err != nil {
+		slog.Error("ListPosts: count db error", slog.Any("error", err))
+		return api.ListPosts500JSONResponse{Error: "Could not load posts"}, nil
+	}
+
+	totalPages := int((totalPosts + postsPerPage - 1) / postsPerPage)
+
+	posts := make([]api.PostSummary, 0, len(rows))
+	for _, p := range rows {
+		var overlayID *string
+		if p.OverlayID.Valid {
+			overlayID = &p.OverlayID.String
+		}
+		posts = append(posts, api.PostSummary{
+			Id:           p.ID,
+			UserId:       p.UserID,
+			Username:     p.Username,
+			ImagePath:    p.ImagePath,
+			OverlayId:    overlayID,
+			CreatedAt:    p.CreatedAt,
+			LikeCount:    int(p.LikeCount),
+			CommentCount: int(p.CommentCount),
+			LikedByMe:    p.LikedByMe,
+		})
+	}
+
+	return api.ListPosts200JSONResponse{
+		Posts:      posts,
+		Page:       page,
+		PageSize:   postsPerPage,
+		TotalPosts: int(totalPosts),
+		TotalPages: totalPages,
+		HasNext:    page < totalPages,
+		HasPrev:    page > 1,
+	}, nil
+}
+
+func (h *Handler) DeletePost(ctx context.Context, r api.DeletePostRequestObject) (api.DeletePostResponseObject, error) {
+	userID, ok := middleware.UserIDFromContext(ctx)
+	if !ok {
+		return api.DeletePost401JSONResponse{Error: "Not authenticated"}, nil
+	}
+
+	post, err := h.Cfg.DB.GetPostByID(ctx, r.Id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return api.DeletePost404JSONResponse{Error: "Post not found"}, nil
+		}
+		slog.Error("DeletePost: db error looking up post", slog.Any("error", err), slog.String("post_id", r.Id.String()))
+		return api.DeletePost500JSONResponse{Error: "Could not delete post"}, nil
+	}
+
+	if post.UserID != userID {
+		return api.DeletePost403JSONResponse{Error: "You do not own this post"}, nil
+	}
+
+	if _, err := h.Cfg.DB.DeletePost(ctx, db.DeletePostParams{ID: r.Id, UserID: userID}); err != nil {
+		slog.Error("DeletePost: db error deleting post", slog.Any("error", err), slog.String("post_id", r.Id.String()))
+		return api.DeletePost500JSONResponse{Error: "Could not delete post"}, nil
+	}
+
+	if err := h.Cfg.Storage.Delete(post.ImagePath); err != nil {
+		slog.Error("DeletePost: failed to remove image file", slog.Any("error", err), slog.String("post_id", r.Id.String()))
+	}
+
+	return api.DeletePost200JSONResponse{Message: "Post deleted"}, nil
 }

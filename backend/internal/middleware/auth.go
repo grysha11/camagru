@@ -30,16 +30,35 @@ func UserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 	return userID, true
 }
 
+var requiredAuthOps = map[string]bool{
+	"GetMe":                 true,
+	"RequestPasswordChange": true,
+	"CreatePost":            true,
+	"ListMyPosts":           true,
+	"DeletePost":            true,
+	"LikePost":              true,
+	"UnlikePost":            true,
+	"CreateComment":         true,
+	"DeleteComment":         true,
+}
+
+var optionalAuthOps = map[string]bool{
+	"ListPosts":    true,
+	"ListComments": true,
+}
+
 func AuthMiddleware(secret string) api.StrictMiddlewareFunc {
 	return func(f api.StrictHandlerFunc, operationID string) api.StrictHandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error) {
-			if operationID != "GetMe" && operationID != "RequestPasswordChange" &&
-				operationID != "CreatePost" && operationID != "ListMyPosts" {
+			if !requiredAuthOps[operationID] && !optionalAuthOps[operationID] {
 				return f(ctx, w, r, request)
 			}
 
 			cookie, err := r.Cookie("access_token")
 			if err != nil {
+				if optionalAuthOps[operationID] {
+					return f(ctx, w, r, request)
+				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				json.NewEncoder(w).Encode(api.ErrorResponse{Error: "Not authenticated"})
@@ -48,6 +67,9 @@ func AuthMiddleware(secret string) api.StrictMiddlewareFunc {
 
 			userID, err := auth.ValidateAccessToken(cookie.Value, secret)
 			if err != nil {
+				if optionalAuthOps[operationID] {
+					return f(ctx, w, r, request)
+				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				json.NewEncoder(w).Encode(api.ErrorResponse{Error: "Not authenticated"})

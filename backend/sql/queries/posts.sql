@@ -27,14 +27,23 @@ WHERE id = $1 AND user_id = $2;
 SELECT
     posts.id,
     posts.user_id,
+    users.username,
     posts.image_path,
     posts.overlay_id,
     posts.created_at,
     COUNT(DISTINCT likes.user_id) AS like_count,
-    COUNT(DISTINCT comments.id) AS comment_count
+    COUNT(DISTINCT comments.id) AS comment_count,
+    COALESCE(BOOL_OR(likes.user_id = sqlc.narg('viewer_id')::uuid), false)::bool AS liked_by_me
 FROM posts
+JOIN users ON users.id = posts.user_id
 LEFT JOIN likes ON likes.post_id = posts.id
 LEFT JOIN comments ON comments.post_id = posts.id
-GROUP BY posts.id
+GROUP BY posts.id, users.username
 ORDER BY posts.created_at DESC
 LIMIT $1 OFFSET $2;
+
+-- name: GetPostOwnerNotifyInfo :one
+SELECT users.id AS user_id, users.email, users.notify_on_comment
+FROM posts
+JOIN users ON users.id = posts.user_id
+WHERE posts.id = $1;

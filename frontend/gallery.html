@@ -7,11 +7,21 @@
 </head>
 <body>
     <main>
-        <h1>Welcome to the Gallery</h1>
-        <p id="user-info"></p>
+        <h1>Camagru</h1>
+        <nav>
+            <a id="account-link" href="/account.html" style="display: none;">Account</a>
+            <a id="login-link" href="/index.html">Log in</a>
+            <a href="/capture.html">New post</a>
+        </nav>
         <div id="status-message" style="font-weight: bold; margin-bottom: 15px;"></div>
-        <button id="change-password-btn">Change password</button>
-        <button id="logout-btn">Log out</button>
+
+        <div id="post-list"></div>
+
+        <div id="pagination">
+            <button id="prev-page-btn" disabled>Prev</button>
+            <span id="page-indicator"></span>
+            <button id="next-page-btn" disabled>Next</button>
+        </div>
     </main>
     <script type="module" src="/js/gallery.js"></script>
 </body>
