@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camagru - Settings</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <main>
+        <header class="site-header">
+            <div class="site-header-top">
+                <div>
+                    <a href="/gallery.html" class="logo">camagru</a>
+                    <span class="tagline">take a picture, put something on it</span>
+                </div>
+                <div class="header-auth">
+                    <span id="nav-user" class="hidden"></span>
+                    <a id="nav-logout" href="#" class="hidden">log out</a>
+                    <a id="nav-login-link" href="/index.html">Log in</a>
+                    <a id="nav-register-link" href="/index.html">Register</a>
+                </div>
+            </div>
+            <nav id="site-nav" class="site-nav hidden">
+                <a href="/gallery.html" class="nav-link" data-nav="wall">the wall</a>
+                <a href="/capture.html" class="nav-link" data-nav="capture">take a picture</a>
+                <a href="/profile.html" class="nav-link" data-nav="profile">my page</a>
+                <a href="/settings.html" class="nav-link" data-nav="settings">settings</a>
+            </nav>
+        </header>
+
+        <div id="status-message" class="status-message"></div>
+
+        <div class="page-content">
+            <div class="profile-columns">
+                <div class="profile-main stack">
+                    <div class="card">
+                        <div class="card-header">Account</div>
+                        <div class="card-body">
+                            <form id="account-form" class="stack">
+                                <label class="field">
+                                    <span>Username</span>
+                                    <input type="text" id="account-username" disabled>
+                                </label>
+                                <label class="field">
+                                    <span>Email</span>
+                                    <input type="email" id="account-email" disabled>
+                                </label>
+                                <p class="hint">A new address has to be confirmed before it takes effect.</p>
+                                <button type="submit" class="btn-primary" disabled>Save changes</button>
+                                <p class="hint">Not available yet — coming in a future update.</p>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">Password</div>
+                        <div class="card-body">
+                            <p class="hint">We'll generate a one-time link to set a new password — no need to remember the old one.</p>
+                            <button type="button" id="change-password-btn" class="btn-plain">Change password</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-sidebar stack">
+                    <div class="card">
+                        <div class="card-header">Email notifications</div>
+                        <div class="card-body">
+                            <label class="checkbox-field">
+                                <input type="checkbox" checked disabled>
+                                <span>
+                                    Someone comments on my picture
+                                    <br><span class="hint">On by default.</span>
+                                </span>
+                            </label>
+                            <p class="hint">Not available yet — coming in a future update.</p>
+                        </div>
+                    </div>
+
+                    <div class="card card-danger">
+                        <div class="card-header">Delete account</div>
+                        <div class="card-body">
+                            <p class="hint">This removes your account and all of your pictures. Comments you left elsewhere stay, without a name.</p>
+                            <button type="button" class="btn-danger" disabled>Delete my account</button>
+                            <p class="hint">Not available yet — coming in a future update.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="site-footer">
+            <span>camagru &mdash; built by <a href="https://github.com/grysha11" target="_blank" rel="noopener">@grysha11</a></span>
+            <span class="site-footer-links">
+                <a href="/gallery.html">the wall</a>
+            </span>
+        </footer>
+    </main>
+    <script type="module" src="/js/settings.js"></script>
+</body>
+</html>

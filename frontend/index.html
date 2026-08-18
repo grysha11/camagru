@@ -3,48 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camagru Auth</title>
+    <title>Camagru</title>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
     <main>
-        <h1>Camagru</h1>
-        <div id="status-message" style="font-weight: bold; margin-bottom: 15px;"></div>
-        <section id="login-section">
-            <h2>Login</h2>
-            <form id="login-form">
+        <header class="site-header">
+            <div class="site-header-top">
                 <div>
-                    <label>Email:</label>
-                    <input type="email" id="login-email" required>
+                    <span class="logo">camagru</span>
+                    <span class="tagline">take a picture, put something on it</span>
                 </div>
+            </div>
+        </header>
+
+        <div id="status-message" class="status-message"></div>
+
+        <div class="page-content">
+            <div class="auth-columns">
                 <div>
-                    <label>Password:</label>
-                    <input type="password" id="login-password" required>
+                    <h1>Point a webcam at yourself.</h1>
+                    <p>Pick a transparent PNG, take the shot, and the server glues them together. Every picture lands on the public wall where anyone can like it or leave a comment.</p>
+                    <p class="hint">Newest first, ten per page.</p>
                 </div>
-                <button type="submit">Sign In</button>
-            </form>
-            <p>Don't have an account? <button id="show-register">Register here</button></p>
-            <p><a href="forgot-password.html">Forgot password?</a></p>
-            <p><a href="/api/oauth/github/login">Continue with GitHub</a></p>
-        </section>
-        <section id="register-section" style="display: none;">
-            <h2>Register</h2>
-            <form id="register-form">
-                <div>
-                    <label>Username:</label>
-                    <input type="text" id="register-username" required>
+
+                <div class="stack">
+                    <section id="login-section" class="card">
+                        <div class="card-header">Log in</div>
+                        <div class="card-body">
+                            <form id="login-form" class="stack">
+                                <label class="field">
+                                    <span>Email</span>
+                                    <input type="email" id="login-email" required>
+                                </label>
+                                <label class="field">
+                                    <span>Password</span>
+                                    <input type="password" id="login-password" required>
+                                </label>
+                                <button type="submit" class="btn-primary">Log in</button>
+                            </form>
+                            <p class="hint">Don't have an account? <button type="button" id="show-register" class="link-btn">Register here</button></p>
+                            <p class="hint"><a href="forgot-password.html">Forgot your password?</a></p>
+                            <p class="hint"><a href="/api/oauth/github/login">Continue with GitHub</a></p>
+                        </div>
+                    </section>
+
+                    <section id="register-section" class="card hidden">
+                        <div class="card-header">Sign up</div>
+                        <div class="card-body">
+                            <form id="register-form" class="stack">
+                                <label class="field">
+                                    <span>Username</span>
+                                    <input type="text" id="register-username" required>
+                                </label>
+                                <label class="field">
+                                    <span>Email</span>
+                                    <input type="email" id="register-email" required>
+                                </label>
+                                <label class="field">
+                                    <span>Password</span>
+                                    <input type="password" id="register-password" required minlength="8">
+                                </label>
+                                <p class="hint">8 characters minimum, one number, one capital, one special character. We send a confirmation link before the account works.</p>
+                                <button type="submit" class="btn-primary">Create account</button>
+                            </form>
+                            <p class="hint">Already registered? <button type="button" id="show-login" class="link-btn">Log in here</button></p>
+                        </div>
+                    </section>
                 </div>
-                <div>
-                    <label>Email:</label>
-                    <input type="email" id="register-email" required>
-                </div>
-                <div>
-                    <label>Password:</label>
-                    <input type="password" id="register-password" required minlength="8">
-                </div>
-                <button type="submit">Create Account</button>
-            </form>
-            <p>Already have an account? <button id="show-login">Login here</button></p>
-        </section>
+            </div>
+        </div>
+
+        <footer class="site-footer">
+            <span>camagru &mdash; built by <a href="https://github.com/grysha11" target="_blank" rel="noopener">@grysha11</a></span>
+        </footer>
     </main>
     <script type="module" src="js/app.js"></script>
 </body>

@@ -9,7 +9,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const showMessage = (msg, isError = false) => {
         statusMessage.textContent = msg;
-        statusMessage.style.color = isError ? "red" : "green";
+        statusMessage.classList.toggle("error", isError);
+        statusMessage.classList.toggle("success", !isError && !!msg);
     };
 
     form.addEventListener("submit", async (e) => {

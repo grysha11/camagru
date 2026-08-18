@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"log/slog"
 	"strings"
 
 	"github.com/grysha11/camagru-backend/internal/api"
 	"github.com/grysha11/camagru-backend/internal/db"
+	"github.com/grysha11/camagru-backend/internal/mailer"
 	"github.com/grysha11/camagru-backend/internal/middleware"
 )
 
@@ -90,8 +90,10 @@ func (h *Handler) CreateComment(ctx context.Context, r api.CreateCommentRequestO
 
 	if ownerInfo.NotifyOnComment && ownerInfo.UserID != userID {
 		subject := "New comment on your Camagru post"
-		body := fmt.Sprintf("%s commented on your post:\n\n%s\n", commenter.Username, comment.Content)
-		if err := h.Cfg.Mailer.Send(ownerInfo.Email, subject, body); err != nil {
+		body, err := mailer.RenderCommentNotification(commenter.Username, comment.Content, h.Cfg.AppBaseURL+"/gallery.html")
+		if err != nil {
+			slog.Error("CreateComment: failed to render notification email", slog.Any("error", err), slog.String("post_id", r.Id.String()))
+		} else if err := h.Cfg.Mailer.Send(ownerInfo.Email, subject, body); err != nil {
 			slog.Error("CreateComment: failed to send notification email", slog.Any("error", err), slog.String("post_id", r.Id.String()))
 		}
 	}

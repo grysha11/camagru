@@ -123,17 +123,22 @@ func (h *Handler) ListMyPosts(ctx context.Context, r api.ListMyPostsRequestObjec
 		return api.ListMyPosts500JSONResponse{Error: "Could not load posts"}, nil
 	}
 
-	resp := make([]api.PostResponse, 0, len(posts))
+	resp := make([]api.PostSummary, 0, len(posts))
 	for _, p := range posts {
 		var overlayID *string
 		if p.OverlayID.Valid {
 			overlayID = &p.OverlayID.String
 		}
-		resp = append(resp, api.PostResponse{
-			Id:        p.ID,
-			ImagePath: p.ImagePath,
-			OverlayId: overlayID,
-			CreatedAt: p.CreatedAt,
+		resp = append(resp, api.PostSummary{
+			Id:           p.ID,
+			UserId:       p.UserID,
+			Username:     p.Username,
+			ImagePath:    p.ImagePath,
+			OverlayId:    overlayID,
+			CreatedAt:    p.CreatedAt,
+			LikeCount:    int(p.LikeCount),
+			CommentCount: int(p.CommentCount),
+			LikedByMe:    p.LikedByMe,
 		})
 	}
 

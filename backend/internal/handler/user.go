@@ -29,8 +29,9 @@ func (h *Handler) GetMe(ctx context.Context, r api.GetMeRequestObject) (api.GetM
 	}
 
 	return api.GetMe200JSONResponse{
-		Id:       user.ID,
-		Username: user.Username,
-		Email:    types.Email(user.Email),
+		Id:        user.ID,
+		Username:  user.Username,
+		Email:     types.Email(user.Email),
+		CreatedAt: user.CreatedAt.Time,
 	}, nil
 }

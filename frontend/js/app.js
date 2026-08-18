@@ -25,7 +25,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const showMessage = (msg, isError = false) => {
         statusMessage.textContent = msg;
-        statusMessage.style.color = isError ? "red" : "green";
+        statusMessage.classList.toggle("error", isError);
+        statusMessage.classList.toggle("success", !isError && !!msg);
+    };
+
+    const clearMessage = () => {
+        statusMessage.textContent = "";
+        statusMessage.classList.remove("error", "success");
     };
 
     const oauthError = new URLSearchParams(window.location.search).get("oauth_error");
@@ -35,15 +41,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     document.getElementById("show-register").addEventListener("click", () => {
-        loginSection.style.display = "none";
-        registerSection.style.display = "block";
-        statusMessage.textContent = "";
+        loginSection.classList.add("hidden");
+        registerSection.classList.remove("hidden");
+        clearMessage();
     });
 
     document.getElementById("show-login").addEventListener("click", () => {
-        registerSection.style.display = "none";
-        loginSection.style.display = "block";
-        statusMessage.textContent = "";
+        registerSection.classList.add("hidden");
+        loginSection.classList.remove("hidden");
+        clearMessage();
     });
 
     registerForm.addEventListener("submit", async (e) => {

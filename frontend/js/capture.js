@@ -1,24 +1,26 @@
 import { api } from './api.js';
+import { initNav } from './nav.js';
 
 let selectedOverlayId = null;
 
 async function guardAndInit() {
+    let user;
     try {
-        await api.me();
+        user = await api.me();
     } catch {
         try {
             await api.refresh();
-            await api.me();
+            user = await api.me();
         } catch {
             window.location.href = "/index.html";
             return;
         }
     }
 
-    init();
+    init(user);
 }
 
-function init() {
+function init(user) {
     const statusMessage = document.getElementById("status-message");
     const overlayList = document.getElementById("overlay-list");
     const video = document.getElementById("camera-preview");
@@ -28,9 +30,12 @@ function init() {
     const canvas = document.getElementById("capture-canvas");
     const myPostsEl = document.getElementById("my-posts");
 
+    initNav("capture", user);
+
     const showMessage = (msg, isError = false) => {
         statusMessage.textContent = msg;
-        statusMessage.style.color = isError ? "red" : "green";
+        statusMessage.classList.toggle("error", isError);
+        statusMessage.classList.toggle("success", !isError && !!msg);
     };
 
     async function loadOverlays() {
@@ -46,24 +51,30 @@ function init() {
         for (const overlay of overlays) {
             const button = document.createElement("button");
             button.type = "button";
+            button.className = "overlay-option";
 
             const img = document.createElement("img");
+            img.className = "overlay-thumb";
             img.src = overlay.url;
             img.alt = overlay.id;
-            img.style.height = "60px";
             button.appendChild(img);
 
             const label = document.createElement("span");
+            label.className = "overlay-label";
             label.textContent = overlay.id;
             button.appendChild(label);
 
-            button.addEventListener("click", () => selectOverlay(overlay));
+            button.addEventListener("click", () => selectOverlay(overlay, button));
             overlayList.appendChild(button);
         }
     }
 
-    function selectOverlay(overlay) {
+    function selectOverlay(overlay, buttonEl) {
         selectedOverlayId = overlay.id;
+
+        for (const btn of overlayList.querySelectorAll(".overlay-option")) {
+            btn.classList.toggle("selected", btn === buttonEl);
+        }
 
         const probe = new Image();
         probe.onload = () => {
@@ -73,7 +84,7 @@ function init() {
         probe.src = overlay.url;
 
         overlayPreview.src = overlay.url;
-        overlayPreview.style.display = "block";
+        overlayPreview.classList.remove("hidden");
 
         captureBtn.disabled = false;
         fileFallback.disabled = false;
@@ -127,12 +138,33 @@ function init() {
 
         myPostsEl.textContent = "";
         for (const post of posts) {
+            const wrap = document.createElement("div");
+            wrap.className = "my-post-thumb-wrap";
+
             const img = document.createElement("img");
+            img.className = "my-post-thumb";
             img.src = post.image_path;
             img.alt = "Post";
-            img.style.height = "120px";
-            img.style.marginRight = "8px";
-            myPostsEl.appendChild(img);
+            wrap.appendChild(img);
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.type = "button";
+            deleteBtn.className = "thumb-delete-btn";
+            deleteBtn.textContent = "×";
+            deleteBtn.setAttribute("aria-label", "Delete post");
+            deleteBtn.addEventListener("click", async () => {
+                deleteBtn.disabled = true;
+                try {
+                    await api.deletePost(post.id);
+                    wrap.remove();
+                } catch (error) {
+                    showMessage(error.message, true);
+                    deleteBtn.disabled = false;
+                }
+            });
+            wrap.appendChild(deleteBtn);
+
+            myPostsEl.appendChild(wrap);
         }
     }
 

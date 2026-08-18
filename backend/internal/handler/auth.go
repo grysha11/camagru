@@ -13,6 +13,7 @@ import (
 	"github.com/grysha11/camagru-backend/internal/api"
 	"github.com/grysha11/camagru-backend/internal/auth"
 	"github.com/grysha11/camagru-backend/internal/db"
+	"github.com/grysha11/camagru-backend/internal/mailer"
 	"github.com/grysha11/camagru-backend/internal/middleware"
 )
 
@@ -53,7 +54,8 @@ func (h *Handler) RegisterUser(ctx context.Context, r api.RegisterUserRequestObj
 
 	if err := h.sendEmailToken(ctx, user.ID, user.Email, emailPurposeVerify, emailVerifyTokenTTL,
 		"Confirm your Camagru account", "confirm-email.html",
-		"Please confirm your email address by visiting the link below:"); err != nil {
+		"Please confirm your email address by visiting the link below:",
+		"This link works once and expires in 24 hours."); err != nil {
 		slog.Error("Registration: failed to send confirmation email", slog.Any("error", err), slog.String("user_id", user.ID.String()))
 	}
 
@@ -85,14 +87,17 @@ func (h *Handler) createEmailToken(ctx context.Context, userID uuid.UUID, purpos
 	return rawToken, nil
 }
 
-func (h *Handler) sendEmailToken(ctx context.Context, userID uuid.UUID, email, purpose string, ttl time.Duration, subject, page, bodyIntro string) error {
+func (h *Handler) sendEmailToken(ctx context.Context, userID uuid.UUID, email, purpose string, ttl time.Duration, subject, page, bodyIntro, footnote string) error {
 	rawToken, err := h.createEmailToken(ctx, userID, purpose, ttl)
 	if err != nil {
 		return err
 	}
 
 	link := fmt.Sprintf("%s/%s?token=%s", h.Cfg.AppBaseURL, page, rawToken)
-	body := fmt.Sprintf("%s\n\n%s\n", bodyIntro, link)
+	body, err := mailer.RenderLinkEmail(bodyIntro, link, footnote)
+	if err != nil {
+		return err
+	}
 	return h.Cfg.Mailer.Send(email, subject, body)
 }
 
@@ -262,7 +267,8 @@ func (h *Handler) ForgotPassword(ctx context.Context, r api.ForgotPasswordReques
 
 	if err := h.sendEmailToken(ctx, user.ID, user.Email, emailPurposeReset, passwordResetTokenTTL,
 		"Reset your Camagru password", "reset-password.html",
-		"Reset your password by visiting the link below:"); err != nil {
+		"Reset your password by visiting the link below:",
+		"This link works once and expires in 1 hour."); err != nil {
 		slog.Error("Forgot password: failed to send reset email", slog.Any("error", err), slog.String("user_id", user.ID.String()))
 	}
 

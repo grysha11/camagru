@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camagru - The Wall</title>
+    <title>Camagru - My Page</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -32,13 +32,25 @@
         <div id="status-message" class="status-message"></div>
 
         <div class="page-content">
-            <h2>The wall</h2>
-            <div id="post-list" class="gallery-grid"></div>
+            <div class="profile-columns">
+                <div class="profile-sidebar">
+                    <div class="avatar-box">[ avatar ]</div>
+                    <p id="profile-username" class="profile-username"></p>
+                    <p id="profile-member-since" class="hint"></p>
+                    <table class="stats-table">
+                        <tr><td>pictures</td><td id="stat-pictures"></td></tr>
+                        <tr><td>likes received</td><td id="stat-likes"></td></tr>
+                        <tr><td>comments</td><td id="stat-comments"></td></tr>
+                    </table>
+                </div>
 
-            <div class="pagination">
-                <button id="prev-page-btn" class="btn-plain" disabled>&laquo; prev</button>
-                <span id="page-indicator" class="page-indicator"></span>
-                <button id="next-page-btn" class="btn-plain" disabled>next &raquo;</button>
+                <div class="profile-main">
+                    <div class="section-header-row">
+                        <h2>My pictures</h2>
+                        <span id="my-pictures-meta" class="hint"></span>
+                    </div>
+                    <div id="my-pictures-grid" class="my-pictures-grid"></div>
+                </div>
             </div>
         </div>
 
@@ -49,6 +61,6 @@
             </span>
         </footer>
     </main>
-    <script type="module" src="/js/gallery.js"></script>
+    <script type="module" src="/js/profile.js"></script>
 </body>
 </html>

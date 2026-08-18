@@ -29,7 +29,7 @@ func (m *Mailer) Send(to, subject, body string) error {
 		auth = smtp.PlainAuth("", m.cfg.User, m.cfg.Password, m.cfg.Host)
 	}
 
-	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
+	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s",
 		m.cfg.From, to, subject, body)
 
 	return smtp.SendMail(addr, auth, m.cfg.From, []string{to}, []byte(msg))
