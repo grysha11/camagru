@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	emailPurposeVerify = "verify_email"
-	emailPurposeReset  = "reset_password"
+	emailPurposeVerify      = "verify_email"
+	emailPurposeReset       = "reset_password"
+	emailPurposeChangeEmail = "change_email"
 )
 
 const (
@@ -320,11 +321,18 @@ func (h *Handler) RequestPasswordChange(ctx context.Context, r api.RequestPasswo
 		return api.RequestPasswordChange401JSONResponse{Error: "Not authenticated"}, nil
 	}
 
-	rawToken, err := h.createEmailToken(ctx, userID, emailPurposeReset, passwordResetTokenTTL)
+	user, err := h.Cfg.DB.GetUserByID(ctx, userID)
 	if err != nil {
-		slog.Error("Request password change: failed to create token", slog.Any("error", err), slog.String("user_id", userID.String()))
-		return api.RequestPasswordChange401JSONResponse{Error: "Could not generate token"}, nil
+		slog.Error("Request password change: db error looking up user", slog.Any("error", err), slog.String("user_id", userID.String()))
+		return api.RequestPasswordChange401JSONResponse{Error: "Not authenticated"}, nil
 	}
 
-	return api.RequestPasswordChange200JSONResponse{Token: rawToken}, nil
+	if err := h.sendEmailToken(ctx, user.ID, user.Email, emailPurposeReset, passwordResetTokenTTL,
+		"Reset your Camagru password", "reset-password.html",
+		"Reset your password by visiting the link below:",
+		"This link works once and expires in 1 hour."); err != nil {
+		slog.Error("Request password change: failed to send reset email", slog.Any("error", err), slog.String("user_id", userID.String()))
+	}
+
+	return api.RequestPasswordChange200JSONResponse{Message: "Check your email for a link to reset your password."}, nil
 }

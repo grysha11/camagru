@@ -67,4 +67,6 @@ type User struct {
 	UpdatedAt       sql.NullTime
 	EmailVerifiedAt sql.NullTime
 	NotifyOnComment bool
+	AvatarPath      sql.NullString
+	PendingEmail    sql.NullString
 }

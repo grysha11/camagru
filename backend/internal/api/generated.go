@@ -62,11 +62,6 @@ type OverlayResponse struct {
 	Url string `json:"url"`
 }
 
-// PasswordChangeTokenResponse defines model for PasswordChangeTokenResponse.
-type PasswordChangeTokenResponse struct {
-	Token string `json:"token"`
-}
-
 // PostListResponse defines model for PostListResponse.
 type PostListResponse struct {
 	HasNext    bool          `json:"has_next"`
@@ -124,17 +119,45 @@ type SuccessResponse struct {
 	Message string `json:"message"`
 }
 
+// UpdateProfileRequest defines model for UpdateProfileRequest.
+type UpdateProfileRequest struct {
+	// Email Example: example@example.com
+	Email           *openapi_types.Email `json:"email,omitempty"`
+	NotifyOnComment *bool                `json:"notify_on_comment,omitempty"`
+
+	// Username Example: grisha
+	Username *string `json:"username,omitempty"`
+}
+
+// UpdateProfileResponse defines model for UpdateProfileResponse.
+type UpdateProfileResponse struct {
+	Message *string      `json:"message,omitempty"`
+	User    UserResponse `json:"user"`
+}
+
 // UserResponse defines model for UserResponse.
 type UserResponse struct {
-	CreatedAt time.Time           `json:"created_at"`
-	Email     openapi_types.Email `json:"email"`
-	Id        openapi_types.UUID  `json:"id"`
-	Username  string              `json:"username"`
+	AvatarPath      *string             `json:"avatar_path,omitempty"`
+	CreatedAt       time.Time           `json:"created_at"`
+	Email           openapi_types.Email `json:"email"`
+	Id              openapi_types.UUID  `json:"id"`
+	NotifyOnComment bool                `json:"notify_on_comment"`
+	Username        string              `json:"username"`
 }
 
 // ConfirmEmailParams defines parameters for ConfirmEmail.
 type ConfirmEmailParams struct {
 	Token string `form:"token" json:"token"`
+}
+
+// ConfirmEmailChangeParams defines parameters for ConfirmEmailChange.
+type ConfirmEmailChangeParams struct {
+	Token string `form:"token" json:"token"`
+}
+
+// UploadAvatarMultipartBody defines parameters for UploadAvatar.
+type UploadAvatarMultipartBody struct {
+	Image openapi_types.File `json:"image"`
 }
 
 // GitHubOAuthCallbackParams defines parameters for GitHubOAuthCallback.
@@ -161,6 +184,12 @@ type ForgotPasswordJSONRequestBody = ForgotPasswordRequest
 // LoginUserJSONRequestBody defines body for LoginUser for application/json ContentType.
 type LoginUserJSONRequestBody = LoginRequest
 
+// UpdateProfileJSONRequestBody defines body for UpdateProfile for application/json ContentType.
+type UpdateProfileJSONRequestBody = UpdateProfileRequest
+
+// UploadAvatarMultipartRequestBody defines body for UploadAvatar for multipart/form-data ContentType.
+type UploadAvatarMultipartRequestBody UploadAvatarMultipartBody
+
 // CreatePostMultipartRequestBody defines body for CreatePost for multipart/form-data ContentType.
 type CreatePostMultipartRequestBody CreatePostMultipartBody
 
@@ -178,6 +207,9 @@ type ServerInterface interface {
 	// ConfirmEmail Confirm a user's email address
 	// (GET /api/confirm-email)
 	ConfirmEmail(w http.ResponseWriter, r *http.Request, params ConfirmEmailParams)
+	// ConfirmEmailChange Confirm a pending email address change
+	// (GET /api/confirm-email-change)
+	ConfirmEmailChange(w http.ResponseWriter, r *http.Request, params ConfirmEmailChangeParams)
 	// ForgotPassword Request a password reset email
 	// (POST /api/forgot-password)
 	ForgotPassword(w http.ResponseWriter, r *http.Request)
@@ -187,9 +219,18 @@ type ServerInterface interface {
 	// LogoutUser Log out a user
 	// (POST /api/logout)
 	LogoutUser(w http.ResponseWriter, r *http.Request)
+	// DeleteAccount Permanently delete the current user's account
+	// (DELETE /api/me)
+	DeleteAccount(w http.ResponseWriter, r *http.Request)
 	// GetMe Get the current authenticated user
 	// (GET /api/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// UpdateProfile Update the current user's username, email, or comment-notification preference
+	// (PATCH /api/me)
+	UpdateProfile(w http.ResponseWriter, r *http.Request)
+	// UploadAvatar Upload/replace the current user's avatar image
+	// (POST /api/me/avatar)
+	UploadAvatar(w http.ResponseWriter, r *http.Request)
 	// GitHubOAuthCallback Handle the GitHub OAuth2 callback
 	// (GET /api/oauth/github/callback)
 	GitHubOAuthCallback(w http.ResponseWriter, r *http.Request, params GitHubOAuthCallbackParams)
@@ -232,7 +273,7 @@ type ServerInterface interface {
 	// RegisterUser Register a new user
 	// (POST /api/register)
 	RegisterUser(w http.ResponseWriter, r *http.Request)
-	// RequestPasswordChange Generate a password reset token for the current authenticated user (no email sent)
+	// RequestPasswordChange Email the current authenticated user a password reset link
 	// (POST /api/request-password-change)
 	RequestPasswordChange(w http.ResponseWriter, r *http.Request)
 	// ResetPassword Reset a user's password using a token
@@ -285,6 +326,39 @@ func (siw *ServerInterfaceWrapper) ConfirmEmail(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// ConfirmEmailChange operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmEmailChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ConfirmEmailChangeParams
+
+	// ------------- Required query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmEmailChange(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ForgotPassword operation middleware
 func (siw *ServerInterfaceWrapper) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
@@ -327,11 +401,53 @@ func (siw *ServerInterfaceWrapper) LogoutUser(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteAccount operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAccount(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMe operation middleware
 func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateProfile operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProfile(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UploadAvatar operation middleware
+func (siw *ServerInterfaceWrapper) UploadAvatar(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadAvatar(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -848,9 +964,13 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/register", wrapper.RegisterUser)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/login", wrapper.LoginUser)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/refresh", wrapper.RefreshToken)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/me", wrapper.DeleteAccount)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/me", wrapper.GetMe)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/me", wrapper.UpdateProfile)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/me/avatar", wrapper.UploadAvatar)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/logout", wrapper.LogoutUser)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/confirm-email", wrapper.ConfirmEmail)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/confirm-email-change", wrapper.ConfirmEmailChange)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/forgot-password", wrapper.ForgotPassword)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/request-password-change", wrapper.RequestPasswordChange)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/reset-password", wrapper.ResetPassword)
@@ -895,6 +1015,42 @@ func (response ConfirmEmail200JSONResponse) VisitConfirmEmailResponse(w http.Res
 type ConfirmEmail400JSONResponse ErrorResponse
 
 func (response ConfirmEmail400JSONResponse) VisitConfirmEmailResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmEmailChangeRequestObject struct {
+	Params ConfirmEmailChangeParams
+}
+
+type ConfirmEmailChangeResponseObject interface {
+	VisitConfirmEmailChangeResponse(w http.ResponseWriter) error
+}
+
+type ConfirmEmailChange200JSONResponse SuccessResponse
+
+func (response ConfirmEmailChange200JSONResponse) VisitConfirmEmailChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmEmailChange400JSONResponse ErrorResponse
+
+func (response ConfirmEmailChange400JSONResponse) VisitConfirmEmailChangeResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1005,6 +1161,51 @@ func (response LogoutUser200JSONResponse) VisitLogoutUserResponse(w http.Respons
 	return err
 }
 
+type DeleteAccountRequestObject struct {
+}
+
+type DeleteAccountResponseObject interface {
+	VisitDeleteAccountResponse(w http.ResponseWriter) error
+}
+
+type DeleteAccount200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type DeleteAccount200JSONResponse struct {
+	Body    SuccessResponse
+	Headers DeleteAccount200ResponseHeaders
+}
+
+func (response DeleteAccount200JSONResponse) VisitDeleteAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAccount401JSONResponse ErrorResponse
+
+func (response DeleteAccount401JSONResponse) VisitDeleteAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetMeRequestObject struct {
 }
 
@@ -1036,6 +1237,134 @@ func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) e
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProfileRequestObject struct {
+	Body *UpdateProfileJSONRequestBody
+}
+
+type UpdateProfileResponseObject interface {
+	VisitUpdateProfileResponse(w http.ResponseWriter) error
+}
+
+type UpdateProfile200JSONResponse UpdateProfileResponse
+
+func (response UpdateProfile200JSONResponse) VisitUpdateProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProfile400JSONResponse ErrorResponse
+
+func (response UpdateProfile400JSONResponse) VisitUpdateProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProfile401JSONResponse ErrorResponse
+
+func (response UpdateProfile401JSONResponse) VisitUpdateProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProfile409JSONResponse ErrorResponse
+
+func (response UpdateProfile409JSONResponse) VisitUpdateProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadAvatarRequestObject struct {
+	Body *multipart.Reader
+}
+
+type UploadAvatarResponseObject interface {
+	VisitUploadAvatarResponse(w http.ResponseWriter) error
+}
+
+type UploadAvatar200JSONResponse UserResponse
+
+func (response UploadAvatar200JSONResponse) VisitUploadAvatarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadAvatar400JSONResponse ErrorResponse
+
+func (response UploadAvatar400JSONResponse) VisitUploadAvatarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadAvatar401JSONResponse ErrorResponse
+
+func (response UploadAvatar401JSONResponse) VisitUploadAvatarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadAvatar500JSONResponse ErrorResponse
+
+func (response UploadAvatar500JSONResponse) VisitUploadAvatarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1725,7 +2054,7 @@ type RequestPasswordChangeResponseObject interface {
 	VisitRequestPasswordChangeResponse(w http.ResponseWriter) error
 }
 
-type RequestPasswordChange200JSONResponse PasswordChangeTokenResponse
+type RequestPasswordChange200JSONResponse SuccessResponse
 
 func (response RequestPasswordChange200JSONResponse) VisitRequestPasswordChangeResponse(w http.ResponseWriter) error {
 
@@ -1818,6 +2147,9 @@ type StrictServerInterface interface {
 	// ConfirmEmail Confirm a user's email address
 	// (GET /api/confirm-email)
 	ConfirmEmail(ctx context.Context, request ConfirmEmailRequestObject) (ConfirmEmailResponseObject, error)
+	// ConfirmEmailChange Confirm a pending email address change
+	// (GET /api/confirm-email-change)
+	ConfirmEmailChange(ctx context.Context, request ConfirmEmailChangeRequestObject) (ConfirmEmailChangeResponseObject, error)
 	// ForgotPassword Request a password reset email
 	// (POST /api/forgot-password)
 	ForgotPassword(ctx context.Context, request ForgotPasswordRequestObject) (ForgotPasswordResponseObject, error)
@@ -1827,9 +2159,18 @@ type StrictServerInterface interface {
 	// LogoutUser Log out a user
 	// (POST /api/logout)
 	LogoutUser(ctx context.Context, request LogoutUserRequestObject) (LogoutUserResponseObject, error)
+	// DeleteAccount Permanently delete the current user's account
+	// (DELETE /api/me)
+	DeleteAccount(ctx context.Context, request DeleteAccountRequestObject) (DeleteAccountResponseObject, error)
 	// GetMe Get the current authenticated user
 	// (GET /api/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// UpdateProfile Update the current user's username, email, or comment-notification preference
+	// (PATCH /api/me)
+	UpdateProfile(ctx context.Context, request UpdateProfileRequestObject) (UpdateProfileResponseObject, error)
+	// UploadAvatar Upload/replace the current user's avatar image
+	// (POST /api/me/avatar)
+	UploadAvatar(ctx context.Context, request UploadAvatarRequestObject) (UploadAvatarResponseObject, error)
 	// GitHubOAuthCallback Handle the GitHub OAuth2 callback
 	// (GET /api/oauth/github/callback)
 	GitHubOAuthCallback(ctx context.Context, request GitHubOAuthCallbackRequestObject) (GitHubOAuthCallbackResponseObject, error)
@@ -1872,7 +2213,7 @@ type StrictServerInterface interface {
 	// RegisterUser Register a new user
 	// (POST /api/register)
 	RegisterUser(ctx context.Context, request RegisterUserRequestObject) (RegisterUserResponseObject, error)
-	// RequestPasswordChange Generate a password reset token for the current authenticated user (no email sent)
+	// RequestPasswordChange Email the current authenticated user a password reset link
 	// (POST /api/request-password-change)
 	RequestPasswordChange(ctx context.Context, request RequestPasswordChangeRequestObject) (RequestPasswordChangeResponseObject, error)
 	// ResetPassword Reset a user's password using a token
@@ -1941,6 +2282,32 @@ func (sh *strictHandler) ConfirmEmail(w http.ResponseWriter, r *http.Request, pa
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ConfirmEmailResponseObject); ok {
 		if err := validResponse.VisitConfirmEmailResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConfirmEmailChange operation middleware
+func (sh *strictHandler) ConfirmEmailChange(w http.ResponseWriter, r *http.Request, params ConfirmEmailChangeParams) {
+	var request ConfirmEmailChangeRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ConfirmEmailChange(ctx, request.(ConfirmEmailChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConfirmEmailChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConfirmEmailChangeResponseObject); ok {
+		if err := validResponse.VisitConfirmEmailChangeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2034,6 +2401,30 @@ func (sh *strictHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteAccount operation middleware
+func (sh *strictHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	var request DeleteAccountRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAccount(ctx, request.(DeleteAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAccountResponseObject); ok {
+		if err := validResponse.VisitDeleteAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetMe operation middleware
 func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	var request GetMeRequestObject
@@ -2051,6 +2442,68 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateProfile operation middleware
+func (sh *strictHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	var request UpdateProfileRequestObject
+
+	var body UpdateProfileJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateProfile(ctx, request.(UpdateProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateProfile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateProfileResponseObject); ok {
+		if err := validResponse.VisitUpdateProfileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UploadAvatar operation middleware
+func (sh *strictHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
+	var request UploadAvatarRequestObject
+
+	if reader, err := r.MultipartReader(); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode multipart body: %w", err))
+		return
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadAvatar(ctx, request.(UploadAvatarRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadAvatar")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UploadAvatarResponseObject); ok {
+		if err := validResponse.VisitUploadAvatarResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

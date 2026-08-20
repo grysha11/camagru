@@ -35,20 +35,31 @@
             <div class="profile-columns">
                 <div class="profile-main stack">
                     <div class="card">
+                        <div class="card-header">Avatar</div>
+                        <div class="card-body">
+                            <div id="avatar-preview" class="avatar-box avatar-box-small">[ avatar ]</div>
+                            <label class="field">
+                                <span>Upload a new avatar</span>
+                                <input type="file" id="avatar-input" accept="image/*">
+                            </label>
+                            <button type="button" id="avatar-upload-btn" class="btn-plain">Upload avatar</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
                         <div class="card-header">Account</div>
                         <div class="card-body">
                             <form id="account-form" class="stack">
                                 <label class="field">
                                     <span>Username</span>
-                                    <input type="text" id="account-username" disabled>
+                                    <input type="text" id="account-username">
                                 </label>
                                 <label class="field">
                                     <span>Email</span>
-                                    <input type="email" id="account-email" disabled>
+                                    <input type="email" id="account-email">
                                 </label>
                                 <p class="hint">A new address has to be confirmed before it takes effect.</p>
-                                <button type="submit" class="btn-primary" disabled>Save changes</button>
-                                <p class="hint">Not available yet — coming in a future update.</p>
+                                <button type="submit" class="btn-primary">Save changes</button>
                             </form>
                         </div>
                     </div>
@@ -56,7 +67,7 @@
                     <div class="card">
                         <div class="card-header">Password</div>
                         <div class="card-body">
-                            <p class="hint">We'll generate a one-time link to set a new password — no need to remember the old one.</p>
+                            <p class="hint">We'll email you a one-time link to set a new password — no need to remember the old one.</p>
                             <button type="button" id="change-password-btn" class="btn-plain">Change password</button>
                         </div>
                     </div>
@@ -67,13 +78,12 @@
                         <div class="card-header">Email notifications</div>
                         <div class="card-body">
                             <label class="checkbox-field">
-                                <input type="checkbox" checked disabled>
+                                <input type="checkbox" id="notify-comment-checkbox" checked>
                                 <span>
                                     Someone comments on my picture
                                     <br><span class="hint">On by default.</span>
                                 </span>
                             </label>
-                            <p class="hint">Not available yet — coming in a future update.</p>
                         </div>
                     </div>
 
@@ -81,8 +91,7 @@
                         <div class="card-header">Delete account</div>
                         <div class="card-body">
                             <p class="hint">This removes your account and all of your pictures. Comments you left elsewhere stay, without a name.</p>
-                            <button type="button" class="btn-danger" disabled>Delete my account</button>
-                            <p class="hint">Not available yet — coming in a future update.</p>
+                            <button type="button" id="delete-account-btn" class="btn-danger">Delete my account</button>
                         </div>
                     </div>
                 </div>
@@ -91,9 +100,6 @@
 
         <footer class="site-footer">
             <span>camagru &mdash; built by <a href="https://github.com/grysha11" target="_blank" rel="noopener">@grysha11</a></span>
-            <span class="site-footer-links">
-                <a href="/gallery.html">the wall</a>
-            </span>
         </footer>
     </main>
     <script type="module" src="/js/settings.js"></script>

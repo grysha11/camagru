@@ -49,6 +49,9 @@ function renderPictureCard(post) {
     deleteBtn.className = "link-btn danger";
     deleteBtn.textContent = "delete";
     deleteBtn.addEventListener("click", async () => {
+        if (!confirm("Are you sure you want to delete this post?")) {
+            return;
+        }
         deleteBtn.disabled = true;
         try {
             await api.deletePost(post.id);
@@ -69,6 +72,15 @@ async function init(user) {
     document.getElementById("profile-username").textContent = user.username;
     if (user.created_at) {
         document.getElementById("profile-member-since").textContent = `Member since ${formatDate(user.created_at)}`;
+    }
+
+    const avatarBox = document.getElementById("profile-avatar");
+    if (user.avatar_path) {
+        avatarBox.textContent = "";
+        const avatarImg = document.createElement("img");
+        avatarImg.src = user.avatar_path;
+        avatarImg.alt = `${user.username}'s avatar`;
+        avatarBox.appendChild(avatarImg);
     }
 
     const grid = document.getElementById("my-pictures-grid");

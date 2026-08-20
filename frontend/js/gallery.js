@@ -49,6 +49,9 @@ function renderCommentItem(postId, comment) {
         deleteBtn.className = "link-btn danger";
         deleteBtn.textContent = "Delete";
         deleteBtn.addEventListener("click", async () => {
+            if (!confirm("Are you sure you want to delete this comment?")) {
+                return;
+            }
             deleteBtn.disabled = true;
             try {
                 await api.deleteComment(postId, comment.id);
@@ -149,6 +152,9 @@ function renderPostCard(post) {
         deleteBtn.className = "post-delete-btn";
         deleteBtn.textContent = "Delete post";
         deleteBtn.addEventListener("click", async () => {
+            if (!confirm("Are you sure you want to delete this post?")) {
+                return;
+            }
             deleteBtn.disabled = true;
             try {
                 await api.deletePost(post.id);

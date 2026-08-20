@@ -12,6 +12,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const applyPendingEmail = `-- name: ApplyPendingEmail :exec
+UPDATE users
+SET email = pending_email, pending_email = NULL, updated_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) ApplyPendingEmail(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, applyPendingEmail, id)
+	return err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (username, email, hashed_password)
 VALUES (
@@ -19,7 +30,7 @@ VALUES (
     $2,
     $3
 )
-RETURNING id, username, email, hashed_password, created_at, updated_at, email_verified_at, notify_on_comment
+RETURNING id, username, email, hashed_password, created_at, updated_at, email_verified_at, notify_on_comment, avatar_path, pending_email
 `
 
 type CreateUserParams struct {
@@ -40,12 +51,24 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.UpdatedAt,
 		&i.EmailVerifiedAt,
 		&i.NotifyOnComment,
+		&i.AvatarPath,
+		&i.PendingEmail,
 	)
 	return i, err
 }
 
+const deleteUser = `-- name: DeleteUser :exec
+DELETE FROM users
+WHERE id = $1
+`
+
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteUser, id)
+	return err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, username, email, hashed_password, created_at, updated_at, email_verified_at, notify_on_comment FROM users
+SELECT id, username, email, hashed_password, created_at, updated_at, email_verified_at, notify_on_comment, avatar_path, pending_email FROM users
 WHERE email = $1 LIMIT 1
 `
 
@@ -61,12 +84,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.UpdatedAt,
 		&i.EmailVerifiedAt,
 		&i.NotifyOnComment,
+		&i.AvatarPath,
+		&i.PendingEmail,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, email, hashed_password, created_at, updated_at, email_verified_at, notify_on_comment FROM users
+SELECT id, username, email, hashed_password, created_at, updated_at, email_verified_at, notify_on_comment, avatar_path, pending_email FROM users
 WHERE id = $1 LIMIT 1
 `
 
@@ -82,6 +107,31 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.UpdatedAt,
 		&i.EmailVerifiedAt,
 		&i.NotifyOnComment,
+		&i.AvatarPath,
+		&i.PendingEmail,
+	)
+	return i, err
+}
+
+const getUserByUsername = `-- name: GetUserByUsername :one
+SELECT id, username, email, hashed_password, created_at, updated_at, email_verified_at, notify_on_comment, avatar_path, pending_email FROM users
+WHERE username = $1 LIMIT 1
+`
+
+func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByUsername, username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.HashedPassword,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.EmailVerifiedAt,
+		&i.NotifyOnComment,
+		&i.AvatarPath,
+		&i.PendingEmail,
 	)
 	return i, err
 }
@@ -94,6 +144,22 @@ WHERE id = $1
 
 func (q *Queries) MarkEmailVerified(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, markEmailVerified, id)
+	return err
+}
+
+const setPendingEmail = `-- name: SetPendingEmail :exec
+UPDATE users
+SET pending_email = $1, updated_at = NOW()
+WHERE id = $2
+`
+
+type SetPendingEmailParams struct {
+	PendingEmail sql.NullString
+	ID           uuid.UUID
+}
+
+func (q *Queries) SetPendingEmail(ctx context.Context, arg SetPendingEmailParams) error {
+	_, err := q.db.ExecContext(ctx, setPendingEmail, arg.PendingEmail, arg.ID)
 	return err
 }
 
@@ -113,6 +179,22 @@ func (q *Queries) UpdateNotifyOnComment(ctx context.Context, arg UpdateNotifyOnC
 	return err
 }
 
+const updateUserAvatar = `-- name: UpdateUserAvatar :exec
+UPDATE users
+SET avatar_path = $1, updated_at = NOW()
+WHERE id = $2
+`
+
+type UpdateUserAvatarParams struct {
+	AvatarPath sql.NullString
+	ID         uuid.UUID
+}
+
+func (q *Queries) UpdateUserAvatar(ctx context.Context, arg UpdateUserAvatarParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserAvatar, arg.AvatarPath, arg.ID)
+	return err
+}
+
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users
 SET hashed_password = $1, updated_at = NOW()
@@ -126,5 +208,21 @@ type UpdateUserPasswordParams struct {
 
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
 	_, err := q.db.ExecContext(ctx, updateUserPassword, arg.HashedPassword, arg.ID)
+	return err
+}
+
+const updateUsername = `-- name: UpdateUsername :exec
+UPDATE users
+SET username = $1, updated_at = NOW()
+WHERE id = $2
+`
+
+type UpdateUsernameParams struct {
+	Username string
+	ID       uuid.UUID
+}
+
+func (q *Queries) UpdateUsername(ctx context.Context, arg UpdateUsernameParams) error {
+	_, err := q.db.ExecContext(ctx, updateUsername, arg.Username, arg.ID)
 	return err
 }

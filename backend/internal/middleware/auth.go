@@ -33,6 +33,9 @@ func UserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 var requiredAuthOps = map[string]bool{
 	"GetMe":                 true,
 	"RequestPasswordChange": true,
+	"UpdateProfile":         true,
+	"UploadAvatar":          true,
+	"DeleteAccount":         true,
 	"CreatePost":            true,
 	"ListMyPosts":           true,
 	"DeletePost":            true,
@@ -121,6 +124,9 @@ func MultiCookieMiddleware() api.StrictMiddlewareFunc {
 				splitAndClear(w, &resp.Headers.SetCookie)
 				return resp, nil
 			case api.LogoutUser200JSONResponse:
+				splitAndClear(w, &resp.Headers.SetCookie)
+				return resp, nil
+			case api.DeleteAccount200JSONResponse:
 				splitAndClear(w, &resp.Headers.SetCookie)
 				return resp, nil
 			case api.RefreshToken200JSONResponse:

@@ -14,8 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
         statusMessage.classList.toggle("success", !isError && !!msg);
     };
 
-    const token = new URLSearchParams(window.location.search).get("token") || sessionStorage.getItem("resetToken");
-    sessionStorage.removeItem("resetToken");
+    const token = new URLSearchParams(window.location.search).get("token");
     if (!token) {
         showMessage("Missing or invalid reset link.", true);
         submitBtn.disabled = true;

@@ -71,6 +71,38 @@ export const api = {
         return handleResponse(response);
     },
 
+    async updateProfile(body) {
+        const response = await fetch("/api/me", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(body),
+        });
+        return handleResponse(response);
+    },
+
+    async confirmEmailChange(token) {
+        const response = await fetch(`/api/confirm-email-change?token=${encodeURIComponent(token)}`);
+        return handleResponse(response);
+    },
+
+    async uploadAvatar(formData) {
+        const response = await fetch("/api/me/avatar", {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+        });
+        return handleResponse(response);
+    },
+
+    async deleteAccount() {
+        const response = await fetch("/api/me", {
+            method: "DELETE",
+            credentials: "include",
+        });
+        return handleResponse(response);
+    },
+
     async resetPassword(token, password) {
         const response = await fetch("/api/reset-password", {
             method: "POST",

@@ -9,13 +9,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         statusMessage.classList.toggle("success", !isError && !!msg);
     };
 
-    const token = new URLSearchParams(window.location.search).get("token");
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    const type = params.get("type");
     if (!token) {
         return showMessage("Missing or invalid confirmation link.", true);
     }
 
     try {
-        const res = await api.confirmEmail(token);
+        const res = type === "change_email" ? await api.confirmEmailChange(token) : await api.confirmEmail(token);
         showMessage(res.message);
     } catch (error) {
         showMessage(error.message, true);
