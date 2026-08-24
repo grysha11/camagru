@@ -76,11 +76,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     loginForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const email = document.getElementById("login-email").value;
+        const username = document.getElementById("login-username").value;
         const password = document.getElementById("login-password").value;
 
         try {
-            const res = await api.login(email, password);
+            const res = await api.login(username, password);
             showMessage(res.message);
             window.location.href = "/gallery.html";
         } catch (error) {

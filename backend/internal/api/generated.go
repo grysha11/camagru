@@ -46,8 +46,8 @@ type ForgotPasswordRequest struct {
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
-	Email    openapi_types.Email `json:"email"`
-	Password string              `json:"password"`
+	Password string `json:"password"`
+	Username string `json:"username"`
 }
 
 // OverlayResponse defines model for OverlayResponse.

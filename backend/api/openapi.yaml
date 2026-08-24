@@ -802,13 +802,12 @@ components:
     LoginRequest:
       type: object
       required:
-        - email
+        - username
         - password
       properties:
-        email:
+        username:
           type: string
-          format: email
-          example: "example@example.com"
+          example: "exampleuser"
         password:
           type: string
           format: password

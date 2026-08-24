@@ -128,28 +128,28 @@ func (h *Handler) issueSessionCookies(ctx context.Context, userID uuid.UUID) (st
 }
 
 func (h *Handler) LoginUser(ctx context.Context, r api.LoginUserRequestObject) (api.LoginUserResponseObject, error) {
-	user, err := h.Cfg.DB.GetUserByEmail(ctx, string(r.Body.Email))
+	user, err := h.Cfg.DB.GetUserByUsername(ctx, r.Body.Username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			slog.Warn("Login failed: unknown email", slog.String("email", string(r.Body.Email)))
+			slog.Warn("Login failed: unknown username", slog.String("username", r.Body.Username))
 		} else {
-			slog.Error("Login failed: database error looking up user by email", slog.Any("error", err))
+			slog.Error("Login failed: database error looking up user by username", slog.Any("error", err))
 		}
-		return api.LoginUser401JSONResponse{Error: "Invalid email or password"}, nil
+		return api.LoginUser401JSONResponse{Error: "Invalid username or password"}, nil
 	}
 
 	if !user.HashedPassword.Valid {
-		slog.Warn("Login failed: account has no password set", slog.String("email", string(r.Body.Email)))
-		return api.LoginUser401JSONResponse{Error: "Invalid email or password"}, nil
+		slog.Warn("Login failed: account has no password set", slog.String("username", r.Body.Username))
+		return api.LoginUser401JSONResponse{Error: "Invalid username or password"}, nil
 	}
 
 	if err := auth.CheckHash(r.Body.Password, user.HashedPassword.String); err != nil {
-		slog.Warn("Login failed: incorrect password", slog.String("email", string(r.Body.Email)))
-		return api.LoginUser401JSONResponse{Error: "Invalid email or password"}, nil
+		slog.Warn("Login failed: incorrect password", slog.String("username", r.Body.Username))
+		return api.LoginUser401JSONResponse{Error: "Invalid username or password"}, nil
 	}
 
 	if !user.EmailVerifiedAt.Valid {
-		slog.Warn("Login rejected: email not verified", slog.String("email", string(r.Body.Email)))
+		slog.Warn("Login rejected: email not verified", slog.String("username", r.Body.Username))
 		return api.LoginUser401JSONResponse{Error: "Please confirm your email before logging in"}, nil
 	}
 
