@@ -1,32 +1,46 @@
-name: camagru
+name: camagru-dev
 
 services:
   db:
     image: postgres:15-alpine
-    container_name: camagru-db
-    restart: unless-stopped
+    container_name: camagru-dev-db
+    restart: always
     env_file:
       - .env
     volumes:
       - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
 
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
-    container_name: camagru-backend
-    restart: unless-stopped
+      dockerfile: Dockerfile.dev
+    container_name: camagru-dev-backend
+    restart: always
     env_file:
       - .env
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
     volumes:
+      - ./backend:/app
       - uploads:/app/uploads
     depends_on:
       - db
+      - mailpit
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: camagru-dev-mailpit
+    restart: always
+    ports:
+      - "8025:8025"
+      - "1025:1025"
 
   proxy:
     image: caddy:2-alpine
-    container_name: camagru-proxy
-    restart: unless-stopped
+    container_name: camagru-dev-proxy
+    restart: always
     ports:
       - "3000:3000"
     volumes:

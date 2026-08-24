@@ -35,10 +35,19 @@ type GitHubConfig struct {
 type GitHubClient struct {
 	cfg        GitHubConfig
 	httpClient *http.Client
+	tokenURL   string
+	userURL    string
+	emailsURL  string
 }
 
 func NewGitHubClient(cfg GitHubConfig) *GitHubClient {
-	return &GitHubClient{cfg: cfg, httpClient: &http.Client{Timeout: 10 * time.Second}}
+	return &GitHubClient{
+		cfg:        cfg,
+		httpClient: &http.Client{Timeout: 10 * time.Second},
+		tokenURL:   tokenURL,
+		userURL:    userURL,
+		emailsURL:  emailsURL,
+	}
 }
 
 type GitHubUser struct {
@@ -72,7 +81,7 @@ func (c *GitHubClient) Exchange(ctx context.Context, code string) (string, error
 		"redirect_uri":  {c.cfg.RedirectURL},
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return "", err
 	}
@@ -112,7 +121,7 @@ type githubEmailResponse struct {
 
 func (c *GitHubClient) FetchUser(ctx context.Context, githubAccessToken string) (GitHubUser, error) {
 	var profile githubUserResponse
-	if err := c.getJSON(ctx, userURL, githubAccessToken, &profile); err != nil {
+	if err := c.getJSON(ctx, c.userURL, githubAccessToken, &profile); err != nil {
 		return GitHubUser{}, err
 	}
 
@@ -134,7 +143,7 @@ func (c *GitHubClient) FetchUser(ctx context.Context, githubAccessToken string) 
 
 func (c *GitHubClient) verifiedPrimaryEmail(ctx context.Context, githubAccessToken string) string {
 	var emails []githubEmailResponse
-	if err := c.getJSON(ctx, emailsURL, githubAccessToken, &emails); err != nil {
+	if err := c.getJSON(ctx, c.emailsURL, githubAccessToken, &emails); err != nil {
 		return ""
 	}
 	for _, e := range emails {
