@@ -109,6 +109,59 @@ func (q *Queries) GetPostOwnerNotifyInfo(ctx context.Context, id uuid.UUID) (Get
 	return i, err
 }
 
+const getPostSummary = `-- name: GetPostSummary :one
+SELECT
+    posts.id,
+    posts.user_id,
+    users.username,
+    posts.image_path,
+    posts.overlay_id,
+    posts.created_at,
+    COUNT(DISTINCT likes.user_id) AS like_count,
+    COUNT(DISTINCT comments.id) AS comment_count,
+    COALESCE(BOOL_OR(likes.user_id = $2::uuid), false)::bool AS liked_by_me
+FROM posts
+JOIN users ON users.id = posts.user_id
+LEFT JOIN likes ON likes.post_id = posts.id
+LEFT JOIN comments ON comments.post_id = posts.id
+WHERE posts.id = $1
+GROUP BY posts.id, users.username
+`
+
+type GetPostSummaryParams struct {
+	ID       uuid.UUID
+	ViewerID uuid.NullUUID
+}
+
+type GetPostSummaryRow struct {
+	ID           uuid.UUID
+	UserID       uuid.UUID
+	Username     string
+	ImagePath    string
+	OverlayID    sql.NullString
+	CreatedAt    time.Time
+	LikeCount    int64
+	CommentCount int64
+	LikedByMe    bool
+}
+
+func (q *Queries) GetPostSummary(ctx context.Context, arg GetPostSummaryParams) (GetPostSummaryRow, error) {
+	row := q.db.QueryRowContext(ctx, getPostSummary, arg.ID, arg.ViewerID)
+	var i GetPostSummaryRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Username,
+		&i.ImagePath,
+		&i.OverlayID,
+		&i.CreatedAt,
+		&i.LikeCount,
+		&i.CommentCount,
+		&i.LikedByMe,
+	)
+	return i, err
+}
+
 const listPosts = `-- name: ListPosts :many
 SELECT
     posts.id,

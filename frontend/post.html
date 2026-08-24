@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camagru - Post</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <main>
+        <header class="site-header">
+            <div class="site-header-top">
+                <div>
+                    <a href="/gallery.html" class="logo">camagru</a>
+                    <span class="tagline">take a picture, put something on it</span>
+                </div>
+                <div class="header-auth">
+                    <span id="nav-user" class="hidden"></span>
+                    <a id="nav-logout" href="#" class="hidden">log out</a>
+                    <a id="nav-login-link" href="/index.html">Log in</a>
+                    <a id="nav-register-link" href="/index.html">Register</a>
+                </div>
+            </div>
+            <nav id="site-nav" class="site-nav hidden">
+                <a href="/gallery.html" class="nav-link" data-nav="wall">the wall</a>
+                <a href="/capture.html" class="nav-link" data-nav="capture">take a picture</a>
+                <a href="/profile.html" class="nav-link" data-nav="profile">my page</a>
+                <a href="/settings.html" class="nav-link" data-nav="settings">settings</a>
+            </nav>
+        </header>
+
+        <div id="status-message" class="status-message"></div>
+
+        <div class="page-content">
+            <p class="hint"><a href="/gallery.html">&laquo; back to the wall</a></p>
+            <div id="post-container"></div>
+        </div>
+
+        <footer class="site-footer">
+            <span>camagru &mdash; built by <a href="https://github.com/grysha11" target="_blank" rel="noopener">@grysha11</a></span>
+        </footer>
+    </main>
+    <script type="module" src="/js/post.js"></script>
+</body>
+</html>

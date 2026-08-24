@@ -530,6 +530,35 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /api/posts/{id}:
+    get:
+      summary: Get a single post
+      operationId: GetPost
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostSummary'
+        '404':
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Could not load post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       summary: Delete a post (owner only)
       operationId: DeletePost

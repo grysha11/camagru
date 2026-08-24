@@ -204,6 +204,39 @@ func (h *Handler) ListPosts(ctx context.Context, r api.ListPostsRequestObject) (
 	}, nil
 }
 
+func (h *Handler) GetPost(ctx context.Context, r api.GetPostRequestObject) (api.GetPostResponseObject, error) {
+	var viewerID uuid.NullUUID
+	if userID, ok := middleware.UserIDFromContext(ctx); ok {
+		viewerID = uuid.NullUUID{UUID: userID, Valid: true}
+	}
+
+	p, err := h.Cfg.DB.GetPostSummary(ctx, db.GetPostSummaryParams{ID: r.Id, ViewerID: viewerID})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return api.GetPost404JSONResponse{Error: "Post not found"}, nil
+		}
+		slog.Error("GetPost: db error", slog.Any("error", err), slog.String("post_id", r.Id.String()))
+		return api.GetPost500JSONResponse{Error: "Could not load post"}, nil
+	}
+
+	var overlayID *string
+	if p.OverlayID.Valid {
+		overlayID = &p.OverlayID.String
+	}
+
+	return api.GetPost200JSONResponse{
+		Id:           p.ID,
+		UserId:       p.UserID,
+		Username:     p.Username,
+		ImagePath:    p.ImagePath,
+		OverlayId:    overlayID,
+		CreatedAt:    p.CreatedAt,
+		LikeCount:    int(p.LikeCount),
+		CommentCount: int(p.CommentCount),
+		LikedByMe:    p.LikedByMe,
+	}, nil
+}
+
 func (h *Handler) DeletePost(ctx context.Context, r api.DeletePostRequestObject) (api.DeletePostResponseObject, error) {
 	userID, ok := middleware.UserIDFromContext(ctx)
 	if !ok {

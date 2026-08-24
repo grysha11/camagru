@@ -17,9 +17,8 @@ function requireLogin() {
 }
 
 const commentCallbacks = { showMessage, requireLogin };
-const commentsPreviewLimit = 2;
 
-function renderPostCard(post) {
+function renderPost(post) {
     const article = document.createElement("article");
     article.className = "post-card";
 
@@ -106,7 +105,7 @@ function renderPostCard(post) {
             deleteBtn.disabled = true;
             try {
                 await api.deletePost(post.id);
-                article.remove();
+                window.location.href = "/gallery.html";
             } catch (error) {
                 if (error.status === 401) {
                     requireLogin();
@@ -126,61 +125,23 @@ function renderPostCard(post) {
     const commentList = document.createElement("ul");
     commentList.className = "comment-list";
     commentsSection.appendChild(commentList);
-
-    if (post.comment_count > commentsPreviewLimit) {
-        const viewAllLink = document.createElement("a");
-        viewAllLink.href = `post.html?id=${post.id}`;
-        viewAllLink.textContent = `View all ${post.comment_count} comments →`;
-        commentsSection.appendChild(viewAllLink);
-    }
-
     commentsSection.appendChild(renderCommentForm(post.id, commentList, currentUser, commentCallbacks));
 
     body.appendChild(commentsSection);
     article.appendChild(body);
 
-    renderComments(post.id, commentList, currentUser, commentCallbacks, { limit: commentsPreviewLimit });
+    renderComments(post.id, commentList, currentUser, commentCallbacks);
 
     return article;
 }
 
-async function loadPage(page) {
-    let data;
-    try {
-        data = await api.listPosts(page);
-    } catch (error) {
-        showMessage(error.message, true);
-        return;
-    }
-
-    const postList = document.getElementById("post-list");
-    postList.textContent = "";
-
-    if (data.posts.length === 0) {
-        const empty = document.createElement("p");
-        empty.className = "hint";
-        empty.textContent = "No posts yet.";
-        postList.appendChild(empty);
-    } else {
-        for (const post of data.posts) {
-            postList.appendChild(renderPostCard(post));
-        }
-    }
-
-    const pageIndicator = document.getElementById("page-indicator");
-    pageIndicator.textContent = data.total_posts > 0
-        ? `Page ${data.page} of ${data.total_pages}`
-        : "";
-
-    const prevBtn = document.getElementById("prev-page-btn");
-    const nextBtn = document.getElementById("next-page-btn");
-    prevBtn.disabled = !data.has_prev;
-    nextBtn.disabled = !data.has_next;
-
-    prevBtn.onclick = () => loadPage(data.page - 1);
-    nextBtn.onclick = () => loadPage(data.page + 1);
-
-    window.history.replaceState({}, "", `?page=${data.page}`);
+function renderNotFound() {
+    const container = document.getElementById("post-container");
+    container.textContent = "";
+    const msg = document.createElement("p");
+    msg.className = "hint";
+    msg.textContent = "This post does not exist. It may have been deleted.";
+    container.appendChild(msg);
 }
 
 async function init() {
@@ -190,10 +151,26 @@ async function init() {
         currentUser = null;
     }
 
-    initNav("wall", currentUser);
+    initNav(null, currentUser);
 
-    const requestedPage = parseInt(new URLSearchParams(window.location.search).get("page"), 10);
-    loadPage(requestedPage > 0 ? requestedPage : 1);
+    const postId = new URLSearchParams(window.location.search).get("id");
+    const container = document.getElementById("post-container");
+
+    if (!postId) {
+        renderNotFound();
+        return;
+    }
+
+    let post;
+    try {
+        post = await api.getPost(postId);
+    } catch (error) {
+        renderNotFound();
+        return;
+    }
+
+    container.textContent = "";
+    container.appendChild(renderPost(post));
 }
 
 document.addEventListener("DOMContentLoaded", init);

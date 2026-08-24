@@ -50,6 +50,7 @@ var requiredAuthOps = map[string]bool{
 var optionalAuthOps = map[string]bool{
 	"ListPosts":    true,
 	"ListComments": true,
+	"GetPost":      true,
 }
 
 func AuthMiddleware(secret string) api.StrictMiddlewareFunc {

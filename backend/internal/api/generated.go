@@ -240,6 +240,9 @@ type ServerInterface interface {
 	// Delete a post (owner only)
 	// (DELETE /api/posts/{id})
 	DeletePost(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Get a single post
+	// (GET /api/posts/{id})
+	GetPost(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// List comments on a post
 	// (GET /api/posts/{id}/comments)
 	ListComments(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
@@ -633,6 +636,32 @@ func (siw *ServerInterfaceWrapper) DeletePost(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetPost operation middleware
+func (siw *ServerInterfaceWrapper) GetPost(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPost(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListComments operation middleware
 func (siw *ServerInterfaceWrapper) ListComments(w http.ResponseWriter, r *http.Request) {
 
@@ -979,6 +1008,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/posts", wrapper.CreatePost)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/posts/mine", wrapper.ListMyPosts)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/posts/{id}", wrapper.DeletePost)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/posts/{id}", wrapper.GetPost)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/posts/{id}/comments", wrapper.ListComments)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/posts/{id}/comments", wrapper.CreateComment)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/posts/{id}/comments/{commentId}", wrapper.DeleteComment)
@@ -1744,6 +1774,56 @@ func (response DeletePost500JSONResponse) VisitDeletePostResponse(w http.Respons
 	return err
 }
 
+type GetPostRequestObject struct {
+	Id openapi_types.UUID `json:"id"`
+}
+
+type GetPostResponseObject interface {
+	VisitGetPostResponse(w http.ResponseWriter) error
+}
+
+type GetPost200JSONResponse PostSummary
+
+func (response GetPost200JSONResponse) VisitGetPostResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPost404JSONResponse ErrorResponse
+
+func (response GetPost404JSONResponse) VisitGetPostResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPost500JSONResponse ErrorResponse
+
+func (response GetPost500JSONResponse) VisitGetPostResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListCommentsRequestObject struct {
 	Id openapi_types.UUID `json:"id"`
 }
@@ -2252,6 +2332,9 @@ type StrictServerInterface interface {
 	// Delete a post (owner only)
 	// (DELETE /api/posts/{id})
 	DeletePost(ctx context.Context, request DeletePostRequestObject) (DeletePostResponseObject, error)
+	// Get a single post
+	// (GET /api/posts/{id})
+	GetPost(ctx context.Context, request GetPostRequestObject) (GetPostResponseObject, error)
 	// List comments on a post
 	// (GET /api/posts/{id}/comments)
 	ListComments(ctx context.Context, request ListCommentsRequestObject) (ListCommentsResponseObject, error)
@@ -2759,6 +2842,32 @@ func (sh *strictHandler) DeletePost(w http.ResponseWriter, r *http.Request, id o
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeletePostResponseObject); ok {
 		if err := validResponse.VisitDeletePostResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPost operation middleware
+func (sh *strictHandler) GetPost(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request GetPostRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPost(ctx, request.(GetPostRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPost")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPostResponseObject); ok {
+		if err := validResponse.VisitGetPostResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

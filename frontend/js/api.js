@@ -136,6 +136,11 @@ export const api = {
         return handleResponse(response);
     },
 
+    async getPost(id) {
+        const response = await fetch(`/api/posts/${encodeURIComponent(id)}`, { credentials: "include" });
+        return handleResponse(response);
+    },
+
     async deletePost(id) {
         const response = await fetch(`/api/posts/${encodeURIComponent(id)}`, {
             method: "DELETE",
