@@ -40,11 +40,19 @@ func (h *Handler) sendEmailChangeConfirmation(ctx context.Context, userID uuid.U
 	return h.Cfg.Mailer.Send(currentEmail, "Confirm your Camagru email change", body)
 }
 
-func toUserResponse(user db.User) api.UserResponse {
+func (h *Handler) toUserResponse(ctx context.Context, user db.User) api.UserResponse {
 	var avatarPath *string
 	if user.AvatarPath.Valid {
 		avatarPath = &user.AvatarPath.String
 	}
+
+	hasGithubLogin := false
+	if _, err := h.Cfg.DB.GetOAuthIdentityByUser(ctx, db.GetOAuthIdentityByUserParams{UserID: user.ID, Provider: "github"}); err == nil {
+		hasGithubLogin = true
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		slog.Warn("toUserResponse: db error checking github oauth identity", slog.Any("error", err), slog.String("user_id", user.ID.String()))
+	}
+
 	return api.UserResponse{
 		Id:              user.ID,
 		Username:        user.Username,
@@ -52,6 +60,7 @@ func toUserResponse(user db.User) api.UserResponse {
 		AvatarPath:      avatarPath,
 		NotifyOnComment: user.NotifyOnComment,
 		CreatedAt:       user.CreatedAt.Time,
+		HasGithubLogin:  hasGithubLogin,
 	}
 }
 
@@ -71,7 +80,7 @@ func (h *Handler) GetMe(ctx context.Context, r api.GetMeRequestObject) (api.GetM
 		return api.GetMe401JSONResponse{Error: "Not authenticated"}, nil
 	}
 
-	return api.GetMe200JSONResponse(toUserResponse(user)), nil
+	return api.GetMe200JSONResponse(h.toUserResponse(ctx, user)), nil
 }
 
 func (h *Handler) UpdateProfile(ctx context.Context, r api.UpdateProfileRequestObject) (api.UpdateProfileResponseObject, error) {
@@ -151,7 +160,7 @@ func (h *Handler) UpdateProfile(ctx context.Context, r api.UpdateProfileRequestO
 	}
 
 	return api.UpdateProfile200JSONResponse{
-		User:    toUserResponse(user),
+		User:    h.toUserResponse(ctx, user),
 		Message: message,
 	}, nil
 }
@@ -267,7 +276,7 @@ func (h *Handler) UploadAvatar(ctx context.Context, r api.UploadAvatarRequestObj
 	}
 
 	user.AvatarPath = sql.NullString{String: avatarPath, Valid: true}
-	return api.UploadAvatar200JSONResponse(toUserResponse(user)), nil
+	return api.UploadAvatar200JSONResponse(h.toUserResponse(ctx, user)), nil
 }
 
 func (h *Handler) DeleteAccount(ctx context.Context, r api.DeleteAccountRequestObject) (api.DeleteAccountResponseObject, error) {

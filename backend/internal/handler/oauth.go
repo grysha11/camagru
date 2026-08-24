@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 
 	"github.com/grysha11/camagru-backend/internal/api"
@@ -42,12 +44,51 @@ func (h *Handler) GitHubOAuthLogin(ctx context.Context, r api.GitHubOAuthLoginRe
 	}, nil
 }
 
+func (h *Handler) GitHubOAuthLink(ctx context.Context, r api.GitHubOAuthLinkRequestObject) (api.GitHubOAuthLinkResponseObject, error) {
+	userID, ok := middleware.UserIDFromContext(ctx)
+	if !ok {
+		return api.GitHubOAuthLink401JSONResponse{Error: "Not authenticated"}, nil
+	}
+
+	state, err := auth.GenerateRandomToken()
+	if err != nil {
+		slog.Error("oauth: failed to generate state for link flow", slog.Any("error", err))
+		return api.GitHubOAuthLink500JSONResponse{Error: "Could not start GitHub linking"}, nil
+	}
+
+	stateCookie := fmt.Sprintf("oauth_state=%s; Path=/api/oauth/github; Max-Age=300; HttpOnly; Secure; SameSite=Lax", state)
+	intentCookie := fmt.Sprintf("oauth_intent=link:%s; Path=/api/oauth/github; Max-Age=300; HttpOnly; Secure; SameSite=Lax", userID.String())
+	cookieHeader := stateCookie + "\n" + intentCookie
+	location := h.Cfg.GitHub.AuthorizeURL(state)
+
+	return api.GitHubOAuthLink302Response{
+		Headers: api.GitHubOAuthLink302ResponseHeaders{
+			Location:  &location,
+			SetCookie: &cookieHeader,
+		},
+	}, nil
+}
+
 func (h *Handler) GitHubOAuthCallback(ctx context.Context, r api.GitHubOAuthCallbackRequestObject) (api.GitHubOAuthCallbackResponseObject, error) {
 	clearState := "oauth_state=; Path=/api/oauth/github; Max-Age=0; HttpOnly; Secure; SameSite=Lax"
+	clearIntent := "oauth_intent=; Path=/api/oauth/github; Max-Age=0; HttpOnly; Secure; SameSite=Lax"
+	clearCookies := clearState + "\n" + clearIntent
+
+	intent, _ := ctx.Value(middleware.OAuthIntentKey).(string)
+	linkUserID, isLinkFlow := uuid.UUID{}, false
+	if rest, found := strings.CutPrefix(intent, "link:"); found {
+		if parsed, err := uuid.Parse(rest); err == nil {
+			linkUserID, isLinkFlow = parsed, true
+		}
+	}
 
 	fail := func(reason string) api.GitHubOAuthCallbackResponseObject {
-		location := fmt.Sprintf("%s/index.html?oauth_error=%s", h.Cfg.AppBaseURL, reason)
-		cookie := clearState
+		returnPage := "index.html"
+		if isLinkFlow {
+			returnPage = "settings.html"
+		}
+		location := fmt.Sprintf("%s/%s?oauth_error=%s", h.Cfg.AppBaseURL, returnPage, reason)
+		cookie := clearCookies
 		return api.GitHubOAuthCallback302Response{
 			Headers: api.GitHubOAuthCallback302ResponseHeaders{
 				Location:  &location,
@@ -88,6 +129,25 @@ func (h *Handler) GitHubOAuthCallback(ctx context.Context, r api.GitHubOAuthCall
 		return fail("server_error"), nil
 	}
 
+	if isLinkFlow {
+		if err := h.linkGitHubIdentity(ctx, linkUserID, ghUser); err != nil {
+			if errors.Is(err, errGitHubAlreadyLinkedElsewhere) {
+				slog.Warn("oauth: github account already linked to a different user", slog.String("user_id", linkUserID.String()))
+				return fail("already_linked"), nil
+			}
+			slog.Error("oauth: failed to link github identity", slog.Any("error", err), slog.String("user_id", linkUserID.String()))
+			return fail("server_error"), nil
+		}
+
+		location := fmt.Sprintf("%s/settings.html?oauth_linked=1", h.Cfg.AppBaseURL)
+		return api.GitHubOAuthCallback302Response{
+			Headers: api.GitHubOAuthCallback302ResponseHeaders{
+				Location:  &location,
+				SetCookie: &clearCookies,
+			},
+		}, nil
+	}
+
 	user, err := h.resolveGitHubUser(ctx, ghUser)
 	if err != nil {
 		if errors.Is(err, errEmailConflictUnverified) {
@@ -104,7 +164,7 @@ func (h *Handler) GitHubOAuthCallback(ctx context.Context, r api.GitHubOAuthCall
 		return fail("server_error"), nil
 	}
 
-	cookieHeader := clearState + "\n" + sessionCookies
+	cookieHeader := clearCookies + "\n" + sessionCookies
 	location := fmt.Sprintf("%s/gallery.html", h.Cfg.AppBaseURL)
 
 	return api.GitHubOAuthCallback302Response{
@@ -113,6 +173,33 @@ func (h *Handler) GitHubOAuthCallback(ctx context.Context, r api.GitHubOAuthCall
 			SetCookie: &cookieHeader,
 		},
 	}, nil
+}
+
+var errGitHubAlreadyLinkedElsewhere = errors.New("oauth: github account already linked to a different user")
+
+func (h *Handler) linkGitHubIdentity(ctx context.Context, userID uuid.UUID, ghUser oauth.GitHubUser) error {
+	identity, err := h.Cfg.DB.GetOAuthIdentityByProvider(ctx, db.GetOAuthIdentityByProviderParams{
+		Provider:       githubProvider,
+		ProviderUserID: ghUser.ID,
+	})
+	if err == nil {
+		if identity.UserID != userID {
+			return errGitHubAlreadyLinkedElsewhere
+		}
+		return nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("lookup oauth identity: %w", err)
+	}
+
+	if _, err := h.Cfg.DB.CreateOAuthIdentity(ctx, db.CreateOAuthIdentityParams{
+		UserID:         userID,
+		Provider:       githubProvider,
+		ProviderUserID: ghUser.ID,
+	}); err != nil {
+		return fmt.Errorf("create oauth identity: %w", err)
+	}
+	return nil
 }
 
 func (h *Handler) resolveGitHubUser(ctx context.Context, ghUser oauth.GitHubUser) (db.User, error) {

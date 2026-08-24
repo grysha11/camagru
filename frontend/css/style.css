@@ -108,6 +108,24 @@ h2 {
   color: #990000;
 }
 
+.gh-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gh-icon {
+  flex-shrink: 0;
+}
+
+.gh-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  text-decoration: none;
+}
+
 .btn-primary, .btn-plain, .btn-danger {
   padding: 6px 12px;
   cursor: pointer;

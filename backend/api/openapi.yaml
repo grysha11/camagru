@@ -360,6 +360,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/oauth/github/link:
+    get:
+      summary: Start linking the authenticated user's account to GitHub OAuth2
+      operationId: GitHubOAuthLink
+      responses:
+        '302':
+          description: Redirect to GitHub's authorize screen
+          headers:
+            Location:
+              schema:
+                type: string
+            Set-Cookie:
+              schema:
+                type: string
+              description: "Sets the short-lived oauth_state and oauth_intent cookies"
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Could not start the OAuth flow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/oauth/github/callback:
     get:
       summary: Handle the GitHub OAuth2 callback
@@ -382,7 +410,7 @@ paths:
             type: string
       responses:
         '302':
-          description: Redirect back to the frontend (success -> gallery, failure -> index with oauth_error)
+          description: Redirect back to the frontend (login flow success -> gallery, link flow success -> settings, failure -> the initiating page with oauth_error)
           headers:
             Location:
               schema:
@@ -390,7 +418,7 @@ paths:
             Set-Cookie:
               schema:
                 type: string
-              description: "Clears oauth_state; on success also sets access_token/refresh_token"
+              description: "Clears oauth_state/oauth_intent; on a login-flow success also sets access_token/refresh_token"
 
   /api/overlays:
     get:
@@ -788,6 +816,7 @@ components:
         - email
         - notify_on_comment
         - created_at
+        - has_github_login
       properties:
         id:
           type: string
@@ -805,6 +834,8 @@ components:
         created_at:
           type: string
           format: date-time
+        has_github_login:
+          type: boolean
 
     UpdateProfileRequest:
       type: object

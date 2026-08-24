@@ -17,6 +17,7 @@ type contextKey string
 const UserIDKey contextKey = "userID"
 const RefreshTokenKey contextKey = "refreshToken"
 const OAuthStateKey contextKey = "oauthState"
+const OAuthIntentKey contextKey = "oauthIntent"
 
 func UserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 	userIDStr, ok := ctx.Value(UserIDKey).(string)
@@ -43,6 +44,7 @@ var requiredAuthOps = map[string]bool{
 	"UnlikePost":            true,
 	"CreateComment":         true,
 	"DeleteComment":         true,
+	"GitHubOAuthLink":       true,
 }
 
 var optionalAuthOps = map[string]bool{
@@ -106,6 +108,9 @@ func RefreshTokenContextMiddleware() api.StrictMiddlewareFunc {
 				if cookie, err := r.Cookie("oauth_state"); err == nil && cookie.Value != "" {
 					ctx = context.WithValue(ctx, OAuthStateKey, cookie.Value)
 				}
+				if cookie, err := r.Cookie("oauth_intent"); err == nil && cookie.Value != "" {
+					ctx = context.WithValue(ctx, OAuthIntentKey, cookie.Value)
+				}
 			}
 			return f(ctx, w, r, request)
 		}
@@ -133,6 +138,9 @@ func MultiCookieMiddleware() api.StrictMiddlewareFunc {
 				splitAndClear(w, &resp.Headers.SetCookie)
 				return resp, nil
 			case api.GitHubOAuthLogin302Response:
+				splitAndClear(w, &resp.Headers.SetCookie)
+				return resp, nil
+			case api.GitHubOAuthLink302Response:
 				splitAndClear(w, &resp.Headers.SetCookie)
 				return resp, nil
 			case api.GitHubOAuthCallback302Response:
