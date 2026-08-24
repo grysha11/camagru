@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { initNav } from './nav.js';
+import { confirmDialog } from './modal.js';
 
 async function guardAndInit() {
     let user;
@@ -116,7 +117,7 @@ function init(user) {
 
     const deleteAccountBtn = document.getElementById("delete-account-btn");
     deleteAccountBtn.addEventListener("click", async () => {
-        if (!confirm("Are you sure? This will permanently delete your account and all of your pictures.")) {
+        if (!(await confirmDialog("Are you sure? This will permanently delete your account and all of your pictures."))) {
             return;
         }
         deleteAccountBtn.disabled = true;

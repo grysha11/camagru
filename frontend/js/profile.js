@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { initNav } from './nav.js';
+import { confirmDialog } from './modal.js';
 
 async function guardAndInit() {
     let user;
@@ -49,7 +50,7 @@ function renderPictureCard(post) {
     deleteBtn.className = "link-btn danger";
     deleteBtn.textContent = "delete";
     deleteBtn.addEventListener("click", async () => {
-        if (!confirm("Are you sure you want to delete this post?")) {
+        if (!(await confirmDialog("Are you sure you want to delete this post?"))) {
             return;
         }
         deleteBtn.disabled = true;

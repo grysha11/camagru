@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { confirmDialog } from './modal.js';
 import { initNav } from './nav.js';
 
 let selectedOverlayId = null;
@@ -153,6 +154,9 @@ function init(user) {
             deleteBtn.textContent = "×";
             deleteBtn.setAttribute("aria-label", "Delete post");
             deleteBtn.addEventListener("click", async () => {
+                if (!(await confirmDialog("Are you sure you want to delete this post?"))) {
+                    return;
+                }
                 deleteBtn.disabled = true;
                 try {
                     await api.deletePost(post.id);
