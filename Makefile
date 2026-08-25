@@ -7,7 +7,7 @@ prod-down:
 	docker compose -f docker-compose.yaml down
 
 dev:
-	docker compose -f docker-compose.dev.yaml up
+	docker compose -f docker-compose.dev.yaml up -d
 
 dev-down:
 	docker compose -f docker-compose.dev.yaml down
