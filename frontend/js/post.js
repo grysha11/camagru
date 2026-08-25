@@ -34,8 +34,9 @@ function renderPost(post) {
     const meta = document.createElement("div");
     meta.className = "post-meta";
 
-    const username = document.createElement("span");
+    const username = document.createElement("a");
     username.className = "post-username";
+    username.href = `/profile.html?username=${encodeURIComponent(post.username)}`;
     username.textContent = post.username;
     meta.appendChild(username);
 

@@ -37,6 +37,7 @@ function setGithubStatus(hasGithubLogin) {
         ? "GitHub account linked."
         : "No GitHub account linked.";
     document.getElementById("github-link-btn").classList.toggle("hidden", hasGithubLogin);
+    document.getElementById("github-unlink-btn").classList.toggle("hidden", !hasGithubLogin);
 }
 
 const oauthErrorMessages = {
@@ -147,6 +148,23 @@ function init(user) {
             showMessage(error.message, true);
         } finally {
             avatarUploadBtn.disabled = false;
+        }
+    });
+
+    const githubUnlinkBtn = document.getElementById("github-unlink-btn");
+    githubUnlinkBtn.addEventListener("click", async () => {
+        if (!(await confirmDialog("Unlink your GitHub account?"))) {
+            return;
+        }
+        githubUnlinkBtn.disabled = true;
+        try {
+            const res = await api.unlinkGithub();
+            setGithubStatus(false);
+            showMessage(res.message);
+        } catch (error) {
+            showMessage(error.message, true);
+        } finally {
+            githubUnlinkBtn.disabled = false;
         }
     });
 

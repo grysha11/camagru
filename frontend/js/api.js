@@ -186,5 +186,23 @@ export const api = {
             credentials: "include",
         });
         return handleResponse(response);
+    },
+
+    async unlinkGithub() {
+        const response = await fetch("/api/oauth/github/unlink", {
+            method: "DELETE",
+            credentials: "include",
+        });
+        return handleResponse(response);
+    },
+
+    async getUserProfile(username) {
+        const response = await fetch(`/api/users/${encodeURIComponent(username)}`, { credentials: "include" });
+        return handleResponse(response);
+    },
+
+    async listUserPosts(username) {
+        const response = await fetch(`/api/users/${encodeURIComponent(username)}/posts`, { credentials: "include" });
+        return handleResponse(response);
     }
 };

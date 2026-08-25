@@ -243,7 +243,7 @@ SELECT
     posts.created_at,
     COUNT(DISTINCT likes.user_id) AS like_count,
     COUNT(DISTINCT comments.id) AS comment_count,
-    COALESCE(BOOL_OR(likes.user_id = posts.user_id), false)::bool AS liked_by_me
+    COALESCE(BOOL_OR(likes.user_id = $2::uuid), false)::bool AS liked_by_me
 FROM posts
 JOIN users ON users.id = posts.user_id
 LEFT JOIN likes ON likes.post_id = posts.id
@@ -252,6 +252,11 @@ WHERE posts.user_id = $1
 GROUP BY posts.id, users.username
 ORDER BY posts.created_at DESC
 `
+
+type ListPostsByUserParams struct {
+	UserID   uuid.UUID
+	ViewerID uuid.NullUUID
+}
 
 type ListPostsByUserRow struct {
 	ID           uuid.UUID
@@ -265,8 +270,8 @@ type ListPostsByUserRow struct {
 	LikedByMe    bool
 }
 
-func (q *Queries) ListPostsByUser(ctx context.Context, userID uuid.UUID) ([]ListPostsByUserRow, error) {
-	rows, err := q.db.QueryContext(ctx, listPostsByUser, userID)
+func (q *Queries) ListPostsByUser(ctx context.Context, arg ListPostsByUserParams) ([]ListPostsByUserRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPostsByUser, arg.UserID, arg.ViewerID)
 	if err != nil {
 		return nil, err
 	}
@@ -274,6 +279,76 @@ func (q *Queries) ListPostsByUser(ctx context.Context, userID uuid.UUID) ([]List
 	var items []ListPostsByUserRow
 	for rows.Next() {
 		var i ListPostsByUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Username,
+			&i.ImagePath,
+			&i.OverlayID,
+			&i.CreatedAt,
+			&i.LikeCount,
+			&i.CommentCount,
+			&i.LikedByMe,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPostsByUsername = `-- name: ListPostsByUsername :many
+SELECT
+    posts.id,
+    posts.user_id,
+    users.username,
+    posts.image_path,
+    posts.overlay_id,
+    posts.created_at,
+    COUNT(DISTINCT likes.user_id) AS like_count,
+    COUNT(DISTINCT comments.id) AS comment_count,
+    COALESCE(BOOL_OR(likes.user_id = $2::uuid), false)::bool AS liked_by_me
+FROM posts
+JOIN users ON users.id = posts.user_id
+LEFT JOIN likes ON likes.post_id = posts.id
+LEFT JOIN comments ON comments.post_id = posts.id
+WHERE users.username = $1
+GROUP BY posts.id, users.username
+ORDER BY posts.created_at DESC
+`
+
+type ListPostsByUsernameParams struct {
+	Username string
+	ViewerID uuid.NullUUID
+}
+
+type ListPostsByUsernameRow struct {
+	ID           uuid.UUID
+	UserID       uuid.UUID
+	Username     string
+	ImagePath    string
+	OverlayID    sql.NullString
+	CreatedAt    time.Time
+	LikeCount    int64
+	CommentCount int64
+	LikedByMe    bool
+}
+
+func (q *Queries) ListPostsByUsername(ctx context.Context, arg ListPostsByUsernameParams) ([]ListPostsByUsernameRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPostsByUsername, arg.Username, arg.ViewerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPostsByUsernameRow
+	for rows.Next() {
+		var i ListPostsByUsernameRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,

@@ -25,6 +25,7 @@ function init(user) {
     const statusMessage = document.getElementById("status-message");
     const overlayList = document.getElementById("overlay-list");
     const video = document.getElementById("camera-preview");
+    const cameraWrap = document.getElementById("camera-wrap");
     const overlayPreview = document.getElementById("overlay-preview");
     const captureBtn = document.getElementById("capture-btn");
     const fileFallback = document.getElementById("file-fallback");
@@ -81,6 +82,7 @@ function init(user) {
         probe.onload = () => {
             canvas.width = probe.naturalWidth;
             canvas.height = probe.naturalHeight;
+            cameraWrap.style.aspectRatio = `${probe.naturalWidth} / ${probe.naturalHeight}`;
         };
         probe.src = overlay.url;
 
@@ -100,14 +102,38 @@ function init(user) {
         }
     }
 
+    function getSourceDimensions(el) {
+        return {
+            width: el.videoWidth ?? el.naturalWidth,
+            height: el.videoHeight ?? el.naturalHeight,
+        };
+    }
+
     function captureFrom(sourceElement) {
         if (!selectedOverlayId || canvas.width === 0 || canvas.height === 0) {
             showMessage("Choose an overlay first.", true);
             return;
         }
 
+        const { width: srcW, height: srcH } = getSourceDimensions(sourceElement);
+        if (!srcW || !srcH) {
+            showMessage("Camera isn't ready yet — try again in a moment.", true);
+            return;
+        }
+
+        const sourceAspect = srcW / srcH;
+        const targetAspect = canvas.width / canvas.height;
+        let sx = 0, sy = 0, cropW = srcW, cropH = srcH;
+        if (sourceAspect > targetAspect) {
+            cropW = srcH * targetAspect;
+            sx = (srcW - cropW) / 2;
+        } else {
+            cropH = srcW / targetAspect;
+            sy = (srcH - cropH) / 2;
+        }
+
         const ctx = canvas.getContext("2d");
-        ctx.drawImage(sourceElement, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(sourceElement, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
         canvas.toBlob((blob) => uploadCapture(blob), "image/png");
     }
 

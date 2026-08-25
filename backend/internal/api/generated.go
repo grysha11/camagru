@@ -88,6 +88,13 @@ type PostSummary struct {
 	Username     string             `json:"username"`
 }
 
+// PublicUserResponse defines model for PublicUserResponse.
+type PublicUserResponse struct {
+	AvatarPath *string   `json:"avatar_path,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+	Username   string    `json:"username"`
+}
+
 // RegisterRequest defines model for RegisterRequest.
 type RegisterRequest struct {
 	Email    openapi_types.Email `json:"email"`
@@ -225,6 +232,9 @@ type ServerInterface interface {
 	// Start GitHub OAuth2 login
 	// (GET /api/oauth/github/login)
 	GitHubOAuthLogin(w http.ResponseWriter, r *http.Request)
+	// Unlink the authenticated user's GitHub account
+	// (DELETE /api/oauth/github/unlink)
+	GitHubOAuthUnlink(w http.ResponseWriter, r *http.Request)
 	// List available overlay PNGs
 	// (GET /api/overlays)
 	ListOverlays(w http.ResponseWriter, r *http.Request)
@@ -270,6 +280,12 @@ type ServerInterface interface {
 	// Reset a user's password using a token
 	// (POST /api/reset-password)
 	ResetPassword(w http.ResponseWriter, r *http.Request)
+	// Get a user's public profile
+	// (GET /api/users/{username})
+	GetUserProfile(w http.ResponseWriter, r *http.Request, username string)
+	// List a user's posts (public)
+	// (GET /api/users/{username}/posts)
+	ListUserPosts(w http.ResponseWriter, r *http.Request, username string)
 	// Health check endpoint
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
@@ -526,6 +542,20 @@ func (siw *ServerInterfaceWrapper) GitHubOAuthLogin(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GitHubOAuthLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GitHubOAuthUnlink operation middleware
+func (siw *ServerInterfaceWrapper) GitHubOAuthUnlink(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GitHubOAuthUnlink(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -857,6 +887,58 @@ func (siw *ServerInterfaceWrapper) ResetPassword(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// GetUserProfile operation middleware
+func (siw *ServerInterfaceWrapper) GetUserProfile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "username" -------------
+	var username string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "username", r.PathValue("username"), &username, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "username", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserProfile(w, r, username)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListUserPosts operation middleware
+func (siw *ServerInterfaceWrapper) ListUserPosts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "username" -------------
+	var username string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "username", r.PathValue("username"), &username, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "username", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUserPosts(w, r, username)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealthz operation middleware
 func (siw *ServerInterfaceWrapper) GetHealthz(w http.ResponseWriter, r *http.Request) {
 
@@ -1003,6 +1085,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/oauth/github/callback", wrapper.GitHubOAuthCallback)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/oauth/github/link", wrapper.GitHubOAuthLink)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/oauth/github/login", wrapper.GitHubOAuthLogin)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/oauth/github/unlink", wrapper.GitHubOAuthUnlink)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/overlays", wrapper.ListOverlays)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/posts", wrapper.ListPosts)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/posts", wrapper.CreatePost)
@@ -1018,6 +1101,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/register", wrapper.RegisterUser)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/request-password-change", wrapper.RequestPasswordChange)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/reset-password", wrapper.ResetPassword)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/users/{username}", wrapper.GetUserProfile)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/users/{username}/posts", wrapper.ListUserPosts)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/healthz", wrapper.GetHealthz)
 
 	return m
@@ -1515,6 +1600,69 @@ func (response GitHubOAuthLogin302Response) VisitGitHubOAuthLoginResponse(w http
 type GitHubOAuthLogin500JSONResponse ErrorResponse
 
 func (response GitHubOAuthLogin500JSONResponse) VisitGitHubOAuthLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GitHubOAuthUnlinkRequestObject struct {
+}
+
+type GitHubOAuthUnlinkResponseObject interface {
+	VisitGitHubOAuthUnlinkResponse(w http.ResponseWriter) error
+}
+
+type GitHubOAuthUnlink200JSONResponse SuccessResponse
+
+func (response GitHubOAuthUnlink200JSONResponse) VisitGitHubOAuthUnlinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GitHubOAuthUnlink400JSONResponse ErrorResponse
+
+func (response GitHubOAuthUnlink400JSONResponse) VisitGitHubOAuthUnlinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GitHubOAuthUnlink401JSONResponse ErrorResponse
+
+func (response GitHubOAuthUnlink401JSONResponse) VisitGitHubOAuthUnlinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GitHubOAuthUnlink500JSONResponse ErrorResponse
+
+func (response GitHubOAuthUnlink500JSONResponse) VisitGitHubOAuthUnlinkResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2256,6 +2404,92 @@ func (response ResetPassword400JSONResponse) VisitResetPasswordResponse(w http.R
 	return err
 }
 
+type GetUserProfileRequestObject struct {
+	Username string `json:"username"`
+}
+
+type GetUserProfileResponseObject interface {
+	VisitGetUserProfileResponse(w http.ResponseWriter) error
+}
+
+type GetUserProfile200JSONResponse PublicUserResponse
+
+func (response GetUserProfile200JSONResponse) VisitGetUserProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetUserProfile404JSONResponse ErrorResponse
+
+func (response GetUserProfile404JSONResponse) VisitGetUserProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListUserPostsRequestObject struct {
+	Username string `json:"username"`
+}
+
+type ListUserPostsResponseObject interface {
+	VisitListUserPostsResponse(w http.ResponseWriter) error
+}
+
+type ListUserPosts200JSONResponse []PostSummary
+
+func (response ListUserPosts200JSONResponse) VisitListUserPostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListUserPosts404JSONResponse ErrorResponse
+
+func (response ListUserPosts404JSONResponse) VisitListUserPostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListUserPosts500JSONResponse ErrorResponse
+
+func (response ListUserPosts500JSONResponse) VisitListUserPostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHealthzRequestObject struct {
 }
 
@@ -2317,6 +2551,9 @@ type StrictServerInterface interface {
 	// Start GitHub OAuth2 login
 	// (GET /api/oauth/github/login)
 	GitHubOAuthLogin(ctx context.Context, request GitHubOAuthLoginRequestObject) (GitHubOAuthLoginResponseObject, error)
+	// Unlink the authenticated user's GitHub account
+	// (DELETE /api/oauth/github/unlink)
+	GitHubOAuthUnlink(ctx context.Context, request GitHubOAuthUnlinkRequestObject) (GitHubOAuthUnlinkResponseObject, error)
 	// List available overlay PNGs
 	// (GET /api/overlays)
 	ListOverlays(ctx context.Context, request ListOverlaysRequestObject) (ListOverlaysResponseObject, error)
@@ -2362,6 +2599,12 @@ type StrictServerInterface interface {
 	// Reset a user's password using a token
 	// (POST /api/reset-password)
 	ResetPassword(ctx context.Context, request ResetPasswordRequestObject) (ResetPasswordResponseObject, error)
+	// Get a user's public profile
+	// (GET /api/users/{username})
+	GetUserProfile(ctx context.Context, request GetUserProfileRequestObject) (GetUserProfileResponseObject, error)
+	// List a user's posts (public)
+	// (GET /api/users/{username}/posts)
+	ListUserPosts(ctx context.Context, request ListUserPostsRequestObject) (ListUserPostsResponseObject, error)
 	// Health check endpoint
 	// (GET /healthz)
 	GetHealthz(ctx context.Context, request GetHealthzRequestObject) (GetHealthzResponseObject, error)
@@ -2711,6 +2954,30 @@ func (sh *strictHandler) GitHubOAuthLogin(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GitHubOAuthLoginResponseObject); ok {
 		if err := validResponse.VisitGitHubOAuthLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GitHubOAuthUnlink operation middleware
+func (sh *strictHandler) GitHubOAuthUnlink(w http.ResponseWriter, r *http.Request) {
+	var request GitHubOAuthUnlinkRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GitHubOAuthUnlink(ctx, request.(GitHubOAuthUnlinkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GitHubOAuthUnlink")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GitHubOAuthUnlinkResponseObject); ok {
+		if err := validResponse.VisitGitHubOAuthUnlinkResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3116,6 +3383,58 @@ func (sh *strictHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ResetPasswordResponseObject); ok {
 		if err := validResponse.VisitResetPasswordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetUserProfile operation middleware
+func (sh *strictHandler) GetUserProfile(w http.ResponseWriter, r *http.Request, username string) {
+	var request GetUserProfileRequestObject
+
+	request.Username = username
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetUserProfile(ctx, request.(GetUserProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetUserProfile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetUserProfileResponseObject); ok {
+		if err := validResponse.VisitGetUserProfileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListUserPosts operation middleware
+func (sh *strictHandler) ListUserPosts(w http.ResponseWriter, r *http.Request, username string) {
+	var request ListUserPostsRequestObject
+
+	request.Username = username
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListUserPosts(ctx, request.(ListUserPostsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListUserPosts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListUserPostsResponseObject); ok {
+		if err := validResponse.VisitListUserPostsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

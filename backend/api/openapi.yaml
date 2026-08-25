@@ -420,6 +420,92 @@ paths:
                 type: string
               description: "Clears oauth_state/oauth_intent; on a login-flow success also sets access_token/refresh_token"
 
+  /api/oauth/github/unlink:
+    delete:
+      summary: Unlink the authenticated user's GitHub account
+      operationId: GitHubOAuthUnlink
+      responses:
+        '200':
+          description: GitHub account unlinked (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: No password set — linking would leave the account with no way to log in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Could not unlink GitHub account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/users/{username}:
+    get:
+      summary: Get a user's public profile
+      operationId: GetUserProfile
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The user's public profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUserResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/users/{username}/posts:
+    get:
+      summary: List a user's posts (public)
+      operationId: ListUserPosts
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The user's posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PostSummary'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Could not load posts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/overlays:
     get:
       summary: List available overlay PNGs
@@ -864,6 +950,21 @@ components:
           format: date-time
         has_github_login:
           type: boolean
+
+    PublicUserResponse:
+      type: object
+      required:
+        - username
+        - created_at
+      properties:
+        username:
+          type: string
+        avatar_path:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
 
     UpdateProfileRequest:
       type: object

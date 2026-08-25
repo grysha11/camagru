@@ -83,6 +83,28 @@ func (h *Handler) GetMe(ctx context.Context, r api.GetMeRequestObject) (api.GetM
 	return api.GetMe200JSONResponse(h.toUserResponse(ctx, user)), nil
 }
 
+func (h *Handler) GetUserProfile(ctx context.Context, r api.GetUserProfileRequestObject) (api.GetUserProfileResponseObject, error) {
+	user, err := h.Cfg.DB.GetUserByUsername(ctx, r.Username)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return api.GetUserProfile404JSONResponse{Error: "User not found"}, nil
+		}
+		slog.Error("GetUserProfile: db error", slog.Any("error", err), slog.String("username", r.Username))
+		return api.GetUserProfile404JSONResponse{Error: "User not found"}, nil
+	}
+
+	var avatarPath *string
+	if user.AvatarPath.Valid {
+		avatarPath = &user.AvatarPath.String
+	}
+
+	return api.GetUserProfile200JSONResponse{
+		Username:   user.Username,
+		AvatarPath: avatarPath,
+		CreatedAt:  user.CreatedAt.Time,
+	}, nil
+}
+
 func (h *Handler) UpdateProfile(ctx context.Context, r api.UpdateProfileRequestObject) (api.UpdateProfileResponseObject, error) {
 	userID, ok := middleware.UserIDFromContext(ctx)
 	if !ok {
@@ -291,7 +313,7 @@ func (h *Handler) DeleteAccount(ctx context.Context, r api.DeleteAccountRequestO
 		return api.DeleteAccount401JSONResponse{Error: "Not authenticated"}, nil
 	}
 
-	posts, err := h.Cfg.DB.ListPostsByUser(ctx, userID)
+	posts, err := h.Cfg.DB.ListPostsByUser(ctx, db.ListPostsByUserParams{UserID: userID})
 	if err != nil {
 		slog.Error("DeleteAccount: db error listing posts for cleanup", slog.Any("error", err), slog.String("user_id", userID.String()))
 	}

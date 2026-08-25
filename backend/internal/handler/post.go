@@ -117,7 +117,10 @@ func (h *Handler) ListMyPosts(ctx context.Context, r api.ListMyPostsRequestObjec
 		return api.ListMyPosts401JSONResponse{Error: "Not authenticated"}, nil
 	}
 
-	posts, err := h.Cfg.DB.ListPostsByUser(ctx, userID)
+	posts, err := h.Cfg.DB.ListPostsByUser(ctx, db.ListPostsByUserParams{
+		UserID:   userID,
+		ViewerID: uuid.NullUUID{UUID: userID, Valid: true},
+	})
 	if err != nil {
 		slog.Error("ListMyPosts: db error", slog.Any("error", err), slog.String("user_id", userID.String()))
 		return api.ListMyPosts500JSONResponse{Error: "Could not load posts"}, nil
@@ -235,6 +238,51 @@ func (h *Handler) GetPost(ctx context.Context, r api.GetPostRequestObject) (api.
 		CommentCount: int(p.CommentCount),
 		LikedByMe:    p.LikedByMe,
 	}, nil
+}
+
+func (h *Handler) ListUserPosts(ctx context.Context, r api.ListUserPostsRequestObject) (api.ListUserPostsResponseObject, error) {
+	if _, err := h.Cfg.DB.GetUserByUsername(ctx, r.Username); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return api.ListUserPosts404JSONResponse{Error: "User not found"}, nil
+		}
+		slog.Error("ListUserPosts: db error looking up user", slog.Any("error", err), slog.String("username", r.Username))
+		return api.ListUserPosts500JSONResponse{Error: "Could not load posts"}, nil
+	}
+
+	var viewerID uuid.NullUUID
+	if userID, ok := middleware.UserIDFromContext(ctx); ok {
+		viewerID = uuid.NullUUID{UUID: userID, Valid: true}
+	}
+
+	rows, err := h.Cfg.DB.ListPostsByUsername(ctx, db.ListPostsByUsernameParams{
+		Username: r.Username,
+		ViewerID: viewerID,
+	})
+	if err != nil {
+		slog.Error("ListUserPosts: db error", slog.Any("error", err), slog.String("username", r.Username))
+		return api.ListUserPosts500JSONResponse{Error: "Could not load posts"}, nil
+	}
+
+	resp := make([]api.PostSummary, 0, len(rows))
+	for _, p := range rows {
+		var overlayID *string
+		if p.OverlayID.Valid {
+			overlayID = &p.OverlayID.String
+		}
+		resp = append(resp, api.PostSummary{
+			Id:           p.ID,
+			UserId:       p.UserID,
+			Username:     p.Username,
+			ImagePath:    p.ImagePath,
+			OverlayId:    overlayID,
+			CreatedAt:    p.CreatedAt,
+			LikeCount:    int(p.LikeCount),
+			CommentCount: int(p.CommentCount),
+			LikedByMe:    p.LikedByMe,
+		})
+	}
+
+	return api.ListUserPosts200JSONResponse(resp), nil
 }
 
 func (h *Handler) DeletePost(ctx context.Context, r api.DeletePostRequestObject) (api.DeletePostResponseObject, error) {

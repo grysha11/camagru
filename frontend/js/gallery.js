@@ -22,6 +22,12 @@ const commentsPreviewLimit = 2;
 function renderPostCard(post) {
     const article = document.createElement("article");
     article.className = "post-card";
+    article.addEventListener("click", (e) => {
+        if (e.target.closest("a, button, input, textarea")) {
+            return;
+        }
+        window.location.href = `post.html?id=${post.id}`;
+    });
 
     const img = document.createElement("img");
     img.className = "post-image";
@@ -35,8 +41,9 @@ function renderPostCard(post) {
     const meta = document.createElement("div");
     meta.className = "post-meta";
 
-    const username = document.createElement("span");
+    const username = document.createElement("a");
     username.className = "post-username";
+    username.href = `/profile.html?username=${encodeURIComponent(post.username)}`;
     username.textContent = post.username;
     meta.appendChild(username);
 

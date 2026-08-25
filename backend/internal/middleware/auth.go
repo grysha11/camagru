@@ -45,12 +45,14 @@ var requiredAuthOps = map[string]bool{
 	"CreateComment":         true,
 	"DeleteComment":         true,
 	"GitHubOAuthLink":       true,
+	"GitHubOAuthUnlink":     true,
 }
 
 var optionalAuthOps = map[string]bool{
-	"ListPosts":    true,
-	"ListComments": true,
-	"GetPost":      true,
+	"ListPosts":     true,
+	"ListComments":  true,
+	"GetPost":       true,
+	"ListUserPosts": true,
 }
 
 func AuthMiddleware(secret string) api.StrictMiddlewareFunc {

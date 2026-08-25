@@ -6,8 +6,9 @@ export function renderCommentItem(postId, comment, currentUser, callbacks) {
     li.className = "comment-item";
 
     const text = document.createElement("span");
-    const author = document.createElement("strong");
+    const author = document.createElement("a");
     author.className = "comment-author";
+    author.href = `/profile.html?username=${encodeURIComponent(comment.username)}`;
     author.textContent = comment.username;
     text.appendChild(author);
     const body = document.createElement("span");

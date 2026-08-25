@@ -40,6 +40,24 @@ func (q *Queries) CreateOAuthIdentity(ctx context.Context, arg CreateOAuthIdenti
 	return i, err
 }
 
+const deleteOAuthIdentity = `-- name: DeleteOAuthIdentity :execrows
+DELETE FROM oauth_identities
+WHERE user_id = $1 AND provider = $2
+`
+
+type DeleteOAuthIdentityParams struct {
+	UserID   uuid.UUID
+	Provider string
+}
+
+func (q *Queries) DeleteOAuthIdentity(ctx context.Context, arg DeleteOAuthIdentityParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteOAuthIdentity, arg.UserID, arg.Provider)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getOAuthIdentityByProvider = `-- name: GetOAuthIdentityByProvider :one
 SELECT id, user_id, provider, provider_user_id, created_at FROM oauth_identities
 WHERE provider = $1 AND provider_user_id = $2 LIMIT 1

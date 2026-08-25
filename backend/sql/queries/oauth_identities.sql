@@ -14,3 +14,7 @@ WHERE provider = $1 AND provider_user_id = $2 LIMIT 1;
 -- name: GetOAuthIdentityByUser :one
 SELECT * FROM oauth_identities
 WHERE user_id = $1 AND provider = $2 LIMIT 1;
+
+-- name: DeleteOAuthIdentity :execrows
+DELETE FROM oauth_identities
+WHERE user_id = $1 AND provider = $2;

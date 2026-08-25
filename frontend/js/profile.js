@@ -3,20 +3,48 @@ import { initNav } from './nav.js';
 import { confirmDialog } from './modal.js';
 
 async function guardAndInit() {
-    let user;
+    const username = new URLSearchParams(window.location.search).get("username");
+
+    let loggedInUser = null;
     try {
-        user = await api.me();
+        loggedInUser = await api.me();
     } catch {
         try {
             await api.refresh();
-            user = await api.me();
+            loggedInUser = await api.me();
         } catch {
-            window.location.href = "/index.html";
-            return;
+            loggedInUser = null;
         }
     }
 
-    init(user);
+    if (!username) {
+        if (!loggedInUser) {
+            window.location.href = "/index.html";
+            return;
+        }
+        init(loggedInUser, loggedInUser, true);
+        return;
+    }
+
+    let profileUser;
+    try {
+        profileUser = await api.getUserProfile(username);
+    } catch {
+        renderNotFound();
+        return;
+    }
+
+    const isOwner = loggedInUser?.username === username;
+    init(profileUser, loggedInUser, isOwner);
+}
+
+function renderNotFound() {
+    const grid = document.getElementById("my-pictures-grid");
+    grid.textContent = "";
+    const msg = document.createElement("p");
+    msg.className = "hint";
+    msg.textContent = "This user does not exist.";
+    grid.appendChild(msg);
 }
 
 function formatDate(dateString) {
@@ -27,7 +55,7 @@ function formatDate(dateString) {
     });
 }
 
-function renderPictureCard(post) {
+function renderPictureCard(post, isOwner) {
     const card = document.createElement("div");
     card.className = "my-picture-card";
 
@@ -45,42 +73,46 @@ function renderPictureCard(post) {
     likes.textContent = `${post.like_count} likes`;
     meta.appendChild(likes);
 
-    const deleteBtn = document.createElement("button");
-    deleteBtn.type = "button";
-    deleteBtn.className = "link-btn danger";
-    deleteBtn.textContent = "delete";
-    deleteBtn.addEventListener("click", async () => {
-        if (!(await confirmDialog("Are you sure you want to delete this post?"))) {
-            return;
-        }
-        deleteBtn.disabled = true;
-        try {
-            await api.deletePost(post.id);
-            card.remove();
-        } catch (error) {
-            deleteBtn.disabled = false;
-        }
-    });
-    meta.appendChild(deleteBtn);
+    if (isOwner) {
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "link-btn danger";
+        deleteBtn.textContent = "delete";
+        deleteBtn.addEventListener("click", async () => {
+            if (!(await confirmDialog("Are you sure you want to delete this post?"))) {
+                return;
+            }
+            deleteBtn.disabled = true;
+            try {
+                await api.deletePost(post.id);
+                card.remove();
+            } catch (error) {
+                deleteBtn.disabled = false;
+            }
+        });
+        meta.appendChild(deleteBtn);
+    }
 
     card.appendChild(meta);
     return card;
 }
 
-async function init(user) {
-    initNav("profile", user);
+async function init(profileUser, navUser, isOwner) {
+    initNav("profile", navUser);
 
-    document.getElementById("profile-username").textContent = user.username;
-    if (user.created_at) {
-        document.getElementById("profile-member-since").textContent = `Member since ${formatDate(user.created_at)}`;
+    document.title = isOwner ? "Camagru - My Page" : `Camagru - ${profileUser.username}`;
+    document.getElementById("profile-username").textContent = profileUser.username;
+    if (profileUser.created_at) {
+        document.getElementById("profile-member-since").textContent = `Member since ${formatDate(profileUser.created_at)}`;
     }
+    document.getElementById("pictures-heading").textContent = isOwner ? "My pictures" : `${profileUser.username}'s pictures`;
 
     const avatarBox = document.getElementById("profile-avatar");
-    if (user.avatar_path) {
+    if (profileUser.avatar_path) {
         avatarBox.textContent = "";
         const avatarImg = document.createElement("img");
-        avatarImg.src = user.avatar_path;
-        avatarImg.alt = `${user.username}'s avatar`;
+        avatarImg.src = profileUser.avatar_path;
+        avatarImg.alt = `${profileUser.username}'s avatar`;
         avatarBox.appendChild(avatarImg);
     }
 
@@ -89,7 +121,7 @@ async function init(user) {
 
     let posts;
     try {
-        posts = await api.myPosts();
+        posts = isOwner ? await api.myPosts() : await api.listUserPosts(profileUser.username);
     } catch {
         posts = [];
     }
@@ -110,7 +142,7 @@ async function init(user) {
         grid.appendChild(empty);
     } else {
         for (const post of posts) {
-            grid.appendChild(renderPictureCard(post));
+            grid.appendChild(renderPictureCard(post, isOwner));
         }
     }
 }

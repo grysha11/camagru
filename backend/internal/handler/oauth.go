@@ -175,6 +175,30 @@ func (h *Handler) GitHubOAuthCallback(ctx context.Context, r api.GitHubOAuthCall
 	}, nil
 }
 
+func (h *Handler) GitHubOAuthUnlink(ctx context.Context, r api.GitHubOAuthUnlinkRequestObject) (api.GitHubOAuthUnlinkResponseObject, error) {
+	userID, ok := middleware.UserIDFromContext(ctx)
+	if !ok {
+		return api.GitHubOAuthUnlink401JSONResponse{Error: "Not authenticated"}, nil
+	}
+
+	user, err := h.Cfg.DB.GetUserByID(ctx, userID)
+	if err != nil {
+		slog.Error("GitHubOAuthUnlink: failed to load user", slog.Any("error", err), slog.String("user_id", userID.String()))
+		return api.GitHubOAuthUnlink401JSONResponse{Error: "Not authenticated"}, nil
+	}
+
+	if !user.HashedPassword.Valid {
+		return api.GitHubOAuthUnlink400JSONResponse{Error: "Set a password before unlinking GitHub, so you don't lose access to your account."}, nil
+	}
+
+	if _, err := h.Cfg.DB.DeleteOAuthIdentity(ctx, db.DeleteOAuthIdentityParams{UserID: userID, Provider: githubProvider}); err != nil {
+		slog.Error("GitHubOAuthUnlink: failed to delete oauth identity", slog.Any("error", err), slog.String("user_id", userID.String()))
+		return api.GitHubOAuthUnlink500JSONResponse{Error: "Could not unlink GitHub account"}, nil
+	}
+
+	return api.GitHubOAuthUnlink200JSONResponse{Message: "GitHub account unlinked"}, nil
+}
+
 var errGitHubAlreadyLinkedElsewhere = errors.New("oauth: github account already linked to a different user")
 
 func (h *Handler) linkGitHubIdentity(ctx context.Context, userID uuid.UUID, ghUser oauth.GitHubUser) error {
