@@ -66,9 +66,45 @@ make prod   # production build, on http://localhost:3000
 
 `make dev-down` / `make prod-down` to stop. Migrations run automatically on container start.
 
-## API docs
+## API reference
 
-With the stack running, interactive API documentation (Swagger UI, generated from the OpenAPI spec) is available at [`/docs`](http://localhost:3000/docs).
+With the stack running, interactive docs (Swagger UI, generated from the OpenAPI spec) are at [`/docs`](http://localhost:3000/docs). For reference without booting anything, here's the full endpoint list:
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/healthz` | Health check | – |
+| POST | `/api/register` | Register a new user | – |
+| POST | `/api/login` | Log in | – |
+| POST | `/api/refresh` | Rotate access/refresh tokens | refresh cookie |
+| POST | `/api/logout` | Log out | – |
+| GET | `/api/confirm-email` | Confirm email address | – |
+| GET | `/api/confirm-email-change` | Confirm a pending email change | – |
+| POST | `/api/forgot-password` | Request a password-reset email | – |
+| POST | `/api/reset-password` | Reset password with a token | – |
+| POST | `/api/request-password-change` | Email a reset link to yourself | required |
+| GET | `/api/oauth/github/login` | Start GitHub OAuth2 login | – |
+| GET | `/api/oauth/github/link` | Start linking GitHub to your account | required |
+| GET | `/api/oauth/github/callback` | GitHub OAuth2 callback | – |
+| DELETE | `/api/oauth/github/unlink` | Unlink GitHub | required |
+| GET | `/api/me` | Get the current user | required |
+| PATCH | `/api/me` | Update username/email/notify preference | required |
+| DELETE | `/api/me` | Delete account | required |
+| POST | `/api/me/avatar` | Upload/replace avatar | required |
+| GET | `/api/users/{username}` | Public profile | – |
+| GET | `/api/users/{username}/posts` | A user's public posts | – |
+| GET | `/api/overlays` | List available overlays | – |
+| GET | `/api/posts` | Paginated public feed | optional |
+| POST | `/api/posts` | Capture/upload a photo | required |
+| GET | `/api/posts/mine` | List your own posts | required |
+| GET | `/api/posts/{id}` | Get a single post | – |
+| DELETE | `/api/posts/{id}` | Delete your own post | required |
+| POST | `/api/posts/{id}/like` | Like a post (idempotent) | required |
+| DELETE | `/api/posts/{id}/like` | Unlike a post (idempotent) | required |
+| GET | `/api/posts/{id}/comments` | List a post's comments | optional |
+| POST | `/api/posts/{id}/comments` | Comment on a post | required |
+| DELETE | `/api/posts/{id}/comments/{commentId}` | Delete your own comment | required |
+
+`required` = 401 without a valid access token · `optional` = works anonymously, returns extra per-viewer data (e.g. `liked_by_me`) when authenticated · `refresh cookie` = needs the `refresh_token` cookie, not the access token.
 
 ## Running tests
 
